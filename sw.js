@@ -1,8 +1,8 @@
-const CACHE = 'diaz-pdv-v2';
+const CACHE = 'diaz-pdv-v3';
 
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE).then(c => 
+    caches.open(CACHE).then(c =>
       c.add('./DiazDelicias_PDV.html').catch(() => {})
     )
   );
@@ -19,14 +19,15 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  // Ignorar requests que não sejam http/https (ex: chrome-extension)
+  // Ignorar requests que não sejam GET ou http/https
+  if (e.request.method !== 'GET') return;
   if (!e.request.url.startsWith('http')) return;
 
   e.respondWith(
     fetch(e.request)
       .then(resp => {
-        // Só cachear respostas válidas de http/https
-        if (resp && resp.status === 200 && e.request.url.startsWith('http')) {
+        // Só cachear respostas GET válidas
+        if (resp && resp.status === 200) {
           const clone = resp.clone();
           caches.open(CACHE).then(c => c.put(e.request, clone).catch(() => {}));
         }
