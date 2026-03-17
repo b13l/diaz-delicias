@@ -240,6 +240,10 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;min-
 .item-sel-row:hover{border-color:var(--rosa);}
 
 #comanda-impressao{display:none;}
+@media print {
+  body > *:not(#comanda-impressao) { display: none !important; }
+  #comanda-impressao { display: block !important; }
+}
 
 .pagamento-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;}
 .pag-btn{padding:12px;background:var(--card2);border:1px solid var(--borda);color:var(--txt2);
@@ -313,6 +317,7 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;min-
   <div class="nav-tab" onclick="trocarPg('pg-cardapio',this)">&#x1F4CB; Cardapio</div>
   <div class="nav-tab" onclick="trocarPg('pg-historico',this)">&#x1F4DC; Historico</div>
   <div class="nav-tab" onclick="trocarPg('pg-estoque',this)">&#x1F4E6; Estoque</div>
+  <div class="nav-tab" onclick="trocarPg('pg-garcom',this)">👨‍🍳 Garçom</div>
 </div>
 
 <div id="pg-principal" class="pg ativa">
@@ -384,10 +389,19 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;min-
             </div>
             <div class="cx-desbloq" id="cx-desbloq">
               <div class="cx-row"><span class="cx-label">Data</span><span class="cx-val cx-ouro" id="cx-data">---</span></div>
-              <div class="cx-row"><span class="cx-label">Concluidos hoje</span><span class="cx-val cx-ouro" id="cx-qtd">0</span></div>
-              <div class="cx-row"><span class="cx-label">Faturamento</span><span class="cx-val cx-verde" id="cx-total">R$ 0,00</span></div>
+              <div class="cx-row"><span class="cx-label">Total Fechado Hoje</span><span class="cx-val cx-verde" id="cx-total">R$ 0,00</span></div>
+              <div class="cx-row"><span class="cx-label">Nº de Pedidos</span><span class="cx-val cx-ouro" id="cx-qtd">0</span></div>
               <div class="cx-row"><span class="cx-label">Em aberto</span><span class="cx-val cx-rosa" id="cx-abertos">0</span></div>
-              <button class="btn-fx-cx" onclick="fecharCaixa()">Fechar Caixa</button>
+              <div style="margin:8px 0 4px;font-size:.72rem;color:var(--txt2);font-weight:700;">Por Forma de Pagamento:</div>
+              <div id="cx-formas" style="font-size:.75rem;"></div>
+              <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
+                <button class="btn-fx-cx" style="flex:1;margin:0;" onclick="baixarPDFCaixa()">📊 Ver Detalhes</button>
+                <button class="btn-fx-cx" style="flex:1;margin:0;border-color:var(--vermelho);color:var(--vermelho);" onclick="limparCaixa()">🗑️ Limpar</button>
+              </div>
+              <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
+                <button class="btn-fx-cx" style="flex:1;margin:0;border-color:var(--ouro);color:var(--ouro);" onclick="fecharCaixa()">💰 Fechar</button>
+                <button class="btn-fx-cx" style="flex:1;margin:0;" onclick="toggleCaixa()">🔒 Bloquear</button>
+              </div>
             </div>
           </div>
         </div>
@@ -454,6 +468,49 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;min-
   </div>
   <div id="hist-resumo" class="resumo-pagamentos"></div>
   <div id="hist-lista"></div>
+  <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--borda);display:flex;gap:8px;flex-wrap:wrap;">
+    <button class="btn-sec" style="flex:none;padding:9px 14px;border-color:var(--vermelho);color:var(--vermelho);" onclick="limparTodoHistorico()">
+      🗑️ Limpar Todo Histórico
+    </button>
+    <div style="font-size:.72rem;color:var(--txt3);align-self:center;">⚠️ Auto-exclusão ativa: comandas com +15 dias são removidas automaticamente</div>
+  </div>
+</div>
+
+<div id="pg-garcom" class="pg">
+  <div class="sec-titulo neon-rosa" style="margin-bottom:14px;">👨‍🍳 Gerenciar Acesso do Garçom</div>
+  <div class="pg2-layout">
+    <div class="card-box">
+      <div class="card-box-titulo">🔑 Credenciais Atuais</div>
+      <div class="form-group">
+        <label class="form-label">Email do Garçom</label>
+        <input type="text" id="garcom-email-info" class="form-input" value="garcom@admin.com" readonly style="opacity:.6;">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nova Senha</label>
+        <input type="password" id="garcom-nova-senha" class="form-input" placeholder="Nova senha (mín. 6 caracteres)">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Confirmar Nova Senha</label>
+        <input type="password" id="garcom-conf-senha" class="form-input" placeholder="Confirme a nova senha">
+      </div>
+      <button class="btn-prim" onclick="alterarSenhaGarcom()">🔑 Alterar Senha</button>
+    </div>
+    <div class="card-box">
+      <div class="card-box-titulo">⚡ Ações Rápidas</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <button class="btn-prim" style="background:rgba(255,23,68,.2);border:1px solid var(--vermelho);color:var(--vermelho);" onclick="deslogarGarcom()">
+          🚪 Forçar Deslogar Garçom
+        </button>
+        <div style="font-size:.75rem;color:var(--txt2);line-height:1.5;">
+          Ao forçar o logout, a sessão do garçom será encerrada e ele precisará fazer login novamente na próxima vez que abrir o sistema.
+        </div>
+        <hr style="border-color:var(--borda);">
+        <div class="card-box-titulo" style="margin-bottom:8px;">📱 Status da Sessão</div>
+        <div id="garcom-status" style="font-size:.82rem;color:var(--txt2);">Verificando...</div>
+        <button class="btn-sec" onclick="verificarSessaoGarcom()" style="margin-top:4px;">🔄 Verificar Agora</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div id="pg-estoque" class="pg">
@@ -496,12 +553,20 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;min-
 
 <div class="modal-ov" id="modal-add-item">
   <div class="modal-box">
-    <div class="modal-titulo">Adicionar Item na Comanda</div>
+    <div class="modal-titulo">+ Itens na Comanda</div>
     <input type="hidden" id="add-item-pedido-id">
     <input type="text" id="add-item-busca" class="form-input" placeholder="Buscar produto..." oninput="filtrarItensModal()" style="margin-bottom:9px;">
     <div id="add-item-lista" class="item-sel-lista"></div>
+    <!-- Carrinho temporário dos novos itens -->
+    <div id="add-item-selecionados-wrap" style="display:none;margin-top:10px;border-top:1px solid var(--borda);padding-top:10px;">
+      <div style="font-size:.75rem;color:var(--ouro);font-weight:700;margin-bottom:6px;">Novos itens selecionados:</div>
+      <div id="add-item-selecionados"></div>
+    </div>
     <div class="modal-actions" style="margin-top:12px;">
-      <button class="btn-sec" onclick="fecharModal('modal-add-item')">Fechar</button>
+      <button class="btn-sec" onclick="cancelarAddItens()">Cancelar</button>
+      <button class="btn-prim" id="btn-confirmar-add-itens" style="flex:1;margin-top:0;opacity:.4;cursor:not-allowed;" onclick="confirmarAddItens()" disabled>
+        ✅ Confirmar e Enviar para Cozinha
+      </button>
     </div>
   </div>
 </div>
@@ -895,11 +960,33 @@ async function apagarImpressaoComConfirmacao(impressaoId) {
 
 function imprimirComandaCozinha(impressao) {
     return new Promise((resolve) => {
-        document.getElementById('comanda-impressao').innerHTML = impressao.conteudo;
+        // Usar iframe para imprimir APENAS a comanda, não a página toda
+        const iframe = document.createElement('iframe');
+        iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;';
+        document.body.appendChild(iframe);
+
+        // Verificar se o conteúdo é HTML completo ou fragmento
+        let html = impressao.conteudo;
+        if (!html.trim().startsWith('<!DOCTYPE') && !html.trim().startsWith('<html')) {
+            // É fragmento HTML — envolver em documento completo com estilo de cupom
+            html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+            <style>
+              @media print { body { margin: 0; } }
+              body{font-family:monospace;font-size:12px;max-width:300px;margin:0 auto;padding:8px;}
+              .c{text-align:center;} .b{font-weight:bold;}
+              hr{border:none;border-top:2px solid #000;margin:5px 0;}
+              table{width:100%;} td{font-size:12px;padding:2px 0;}
+            </style></head><body>${impressao.conteudo}</body></html>`;
+        }
+
+        iframe.contentDocument.open();
+        iframe.contentDocument.write(html);
+        iframe.contentDocument.close();
+
         setTimeout(() => {
-            window.print();
-            setTimeout(() => { document.getElementById('comanda-impressao').innerHTML = ''; resolve(); }, 800);
-        }, 300);
+            iframe.contentWindow.print();
+            setTimeout(() => { iframe.remove(); resolve(); }, 1500);
+        }, 400);
     });
 }
 
@@ -924,6 +1011,7 @@ function trocarPg(id, el) {
   if (id === 'pg-cardapio') { carregarProdutos(); carregarDiaLista(); }
   if (id === 'pg-historico') carregarHistorico();
   if (id === 'pg-estoque') renderEstoque(getEstoque());
+  if (id === 'pg-garcom') verificarSessaoGarcom();
 }
 
 // ==================== CAIXA ====================
@@ -931,11 +1019,15 @@ function desbloqCaixa() {
   const s = document.getElementById('cx-senha').value;
   if (s === SENHA) {
     caixaOk = true;
+    // Mostrar o corpo do caixa (estava hidden)
+    const wrap = document.getElementById('cx-body-wrap');
+    if (wrap) { wrap.style.display = 'block'; }
+    const toggle = document.getElementById('btn-cx-toggle');
+    if (toggle) toggle.textContent = '▲ fechar';
     document.getElementById('cx-locked').style.display = 'none';
     document.getElementById('cx-desbloq').style.display = 'block';
-    document.getElementById('btn-cx-lock').textContent = 'Trancar';
     carregarDadosCaixa();
-    toast('Caixa desbloqueada!');
+    toast('✅ Caixa desbloqueado!');
   } else {
     toast('Senha incorreta!', 'err');
     document.getElementById('cx-senha').value = '';
@@ -957,59 +1049,257 @@ function toggleCaixa() {
 async function carregarDadosCaixa() {
   if (!caixaOk) return;
   const hoje = getBRDateString();
-  const { data } = await db.from('pedidos').select('total_value,status,created_at');
+  const campos = 'id,total_value,status,created_at,forma_pagamento,order_details,mesa_id,client_name,nome_comanda,mesas(numero)';
+  const { data } = await db.from('pedidos').select(campos);
   const pd = data || [];
-  const conc = pd.filter(function(p) { 
-    return p.status === 'CONCLUIDO' && isSameBRDay(p.created_at, hoje); 
+  const conc = pd.filter(p => p.status === 'CONCLUIDO' && isSameBRDay(p.created_at, hoje));
+  const ab = pd.filter(p => ['PENDENTE','PREPARANDO','PRONTO'].includes(p.status) && isSameBRDay(p.created_at, hoje));
+
+  const subtotalHoje = conc.reduce((s, p) => s + (p.total_value || 0), 0);
+  const taxaHoje = subtotalHoje * 0.1;
+  const totalComTaxa = subtotalHoje + taxaHoje;
+
+  document.getElementById('cx-data').textContent = new Date().toLocaleDateString('pt-BR', {
+    timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric'
   });
-  const ab = pd.filter(function(p) { 
-    return (p.status === 'PENDENTE' || p.status === 'PREPARANDO' || p.status === 'PRONTO') && isSameBRDay(p.created_at, hoje); 
-  });
-  document.getElementById('cx-data').textContent = new Date().toLocaleDateString('pt-BR', { timeZone: TZ });
   document.getElementById('cx-qtd').textContent = conc.length;
-  document.getElementById('cx-total').textContent = R(conc.reduce(function(s, p) { return s + (p.total_value || 0); }, 0));
+  document.getElementById('cx-total').textContent = R(totalComTaxa);
   document.getElementById('cx-abertos').textContent = ab.length;
+
+  const formas = {};
+  for (const p of conc) {
+    const f = p.forma_pagamento || 'Outros';
+    const sub = p.total_value || 0;
+    formas[f] = (formas[f] || 0) + sub + sub * 0.1;
+  }
+  let formasHtml = '';
+  for (const [f, v] of Object.entries(formas)) {
+    if (v > 0) formasHtml += `<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid rgba(255,255,255,.04);">
+      <span style="color:var(--txt2)">💳 ${f}</span><span style="color:var(--verde);font-weight:700;">${R(v)}</span></div>`;
+  }
+  const cxFormas = document.getElementById('cx-formas');
+  if (cxFormas) cxFormas.innerHTML = formasHtml || '<span style="color:var(--txt3);font-size:.72rem;">Nenhum pagamento hoje</span>';
+
+  // Guardar para PDF
+  window._caixaDados = { conc, subtotalHoje, taxaHoje, totalComTaxa, formas, hoje: pd };
 }
-function fecharCaixa() { if (confirm('Fechar caixa do dia?')) toggleCaixa(); }
+
+// Gera o HTML do relatório do caixa (reutilizável)
+async function gerarHTMLCaixa() {
+  const hoje = getBRDateString();
+  const { data } = await db.from('pedidos').select('*, mesas(numero)').eq('status','CONCLUIDO').order('created_at');
+  const pd = (data||[]).filter(p => isSameBRDay(p.created_at, hoje));
+  if (!pd.length) return null;
+
+  const subtotal = pd.reduce((s, p) => s + (p.total_value || 0), 0);
+  const taxa = subtotal * 0.1;
+  const total = subtotal + taxa;
+  const dataFmt = new Date().toLocaleDateString('pt-BR', {timeZone:'America/Sao_Paulo'});
+  const geradoEm = new Date().toLocaleString('pt-BR', {timeZone:'America/Sao_Paulo'});
+
+  const formas = {};
+  for (const p of pd) {
+    const f = p.forma_pagamento || 'Outros';
+    formas[f] = (formas[f] || 0) + (p.total_value || 0);
+  }
+  const formasHtml = Object.entries(formas).map(([f, v]) =>
+    `<tr><td>${f}</td><td style="text-align:right">${R(v + v*0.1)}</td></tr>`).join('');
+
+  const comandasHtml = pd.map((p, idx) => {
+    const mesa = p.mesas?.numero ? 'Mesa ' + p.mesas.numero : (p.nome_comanda || '🛵 Viagem');
+    const itens = Array.isArray(p.order_details) ? p.order_details : [];
+    const sub = itens.reduce((s, i) => s + (i.price||0)*(i.qty||1), 0);
+    const itensList = itens.map(i => `<li>${i.qty||1}x ${i.name||i.nome} — ${R((i.price||0)*(i.qty||1))}</li>`).join('');
+    return `<tr style="vertical-align:top;border-bottom:2px solid #ddd;${idx%2===0?'background:#fafafa':''}">
+      <td style="padding:5px 4px;white-space:nowrap">${formatarDataHoraBR(p.created_at)}</td>
+      <td style="padding:5px 4px;font-weight:bold">${mesa}</td>
+      <td style="padding:5px 4px">${p.nome_comanda && !p.mesa_id ? p.nome_comanda : (p.client_name || '-')}</td>
+      <td style="padding:5px 4px"><ul style="margin:0;padding-left:14px;font-size:10px">${itensList}</ul></td>
+      <td style="padding:5px 4px;text-align:center">${p.forma_pagamento||'-'}</td>
+      <td style="padding:5px 4px;text-align:right;font-weight:bold;white-space:nowrap">${R(sub + sub*0.1)}</td>
+    </tr>`;
+  }).join('');
+
+  return { html: `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Caixa ${dataFmt}</title>
+  <style>
+    @media print { body{margin:10px} .no-print{display:none} }
+    body{font-family:Arial,sans-serif;font-size:12px;margin:20px;color:#000}
+    h1{font-size:20px;text-align:center;margin-bottom:2px}
+    h2{font-size:13px;margin:16px 0 6px;border-bottom:2px solid #333;padding-bottom:3px}
+    table{width:100%;border-collapse:collapse;margin-bottom:10px}
+    th{background:#2d2d2d;color:#fff;padding:6px 4px;text-align:left;font-size:11px}
+    td{font-size:11px}
+    .tot{font-weight:bold;font-size:14px;background:#e8f5e9;padding:8px;border:1px solid #4caf50;border-radius:4px;margin:10px 0}
+    hr{border:1px solid #ccc}
+    .badge{display:inline-block;background:#4caf50;color:#fff;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:bold}
+  </style></head>
+  <body>
+  <h1>DIAZ DELICIAS</h1>
+  <div style="text-align:center;font-size:12px;color:#666;margin-bottom:4px">Relatório de Fechamento de Caixa</div>
+  <div style="text-align:center;font-size:12px;font-weight:bold">${dataFmt}</div>
+  <hr>
+  <div class="tot">
+    💰 TOTAL DO DIA: ${R(total)} &nbsp;|&nbsp;
+    📋 Pedidos fechados: ${pd.length} &nbsp;|&nbsp;
+    📊 Taxa de serviço (10%): ${R(taxa)}
+  </div>
+  <h2>Por Forma de Pagamento</h2>
+  <table>
+    <tr><th>Forma de Pagamento</th><th style="text-align:right">Total (c/ taxa 10%)</th></tr>
+    ${formasHtml}
+    <tr style="background:#f5f5f5"><td><strong>TOTAL</strong></td><td style="text-align:right"><strong>${R(total)}</strong></td></tr>
+  </table>
+  <h2>Detalhamento Completo das Comandas</h2>
+  <table>
+    <tr>
+      <th>Data/Hora</th>
+      <th>Mesa/Origem</th>
+      <th>Cliente/Comanda</th>
+      <th>Itens Consumidos</th>
+      <th style="text-align:center">Pagamento</th>
+      <th style="text-align:right">Total</th>
+    </tr>
+    ${comandasHtml}
+  </table>
+  <hr>
+  <div style="font-size:10px;color:#999;text-align:center;margin-top:8px">
+    Gerado em ${geradoEm} — Diaz Delicias
+  </div>
+  </body></html>`, pd };
+}
+
+// "Ver Detalhes" — abre em nova aba para visualizar/imprimir
+async function baixarPDFCaixa() {
+  const resultado = await gerarHTMLCaixa();
+  if (!resultado) return toast('Nenhuma comanda fechada hoje', 'err');
+  const win = window.open('', '_blank');
+  win.document.write(resultado.html);
+  win.document.close();
+}
+
+// Chamado pelo Fechar Caixa — abre e aciona print automaticamente
+async function gerarEBaixarPDFCaixa() {
+  const resultado = await gerarHTMLCaixa();
+  if (!resultado) return;
+  const win = window.open('', '_blank');
+  win.document.write(resultado.html);
+  win.document.close();
+  setTimeout(() => { try { win.print(); } catch(e) {} }, 700);
+}
+
+async function limparCaixa() {
+  if (!confirm('Limpar comandas concluídas de hoje? Elas serão excluídas permanentemente.')) return;
+  const hoje = getBRDateString();
+  const { data } = await db.from('pedidos').select('id,created_at').eq('status','CONCLUIDO');
+  const ids = (data||[]).filter(p => isSameBRDay(p.created_at, hoje)).map(p => p.id);
+  if (!ids.length) return toast('Nenhuma comanda para limpar hoje', 'info');
+  const { error } = await db.from('pedidos').delete().in('id', ids);
+  if (error) return toast('Erro: ' + error.message, 'err');
+  toast(`🗑️ ${ids.length} comanda(s) removida(s)!`);
+  carregarDadosCaixa();
+  carregarPedidos();
+}
+async function fecharCaixa() {
+  if (!confirm('Fechar o caixa do dia?\n\nIsso irá:\n• Gerar e baixar o PDF com detalhes\n• Apagar todos os registros de hoje\n• Bloquear o caixa\n\nConfirmar?')) return;
+
+  // 1. Gerar PDF antes de apagar
+  await gerarEBaixarPDFCaixa();
+
+  // 2. Pequena pausa para o PDF abrir
+  await new Promise(r => setTimeout(r, 800));
+
+  // 3. Apagar histórico do dia
+  const hoje = getBRDateString();
+  const { data } = await db.from('pedidos').select('id,created_at').eq('status','CONCLUIDO');
+  const ids = (data||[]).filter(p => isSameBRDay(p.created_at, hoje)).map(p => p.id);
+  if (ids.length) {
+    await db.from('pedidos').delete().in('id', ids);
+    toast(`🗑️ ${ids.length} comanda(s) do dia removida(s)`);
+  }
+
+  // 4. Bloquear caixa
+  caixaOk = false;
+  document.getElementById('cx-locked').style.display = 'block';
+  document.getElementById('cx-desbloq').style.display = 'none';
+  document.getElementById('cx-senha').value = '';
+  const wrap = document.getElementById('cx-body-wrap');
+  if (wrap) { wrap.style.display = 'none'; }
+  const toggle = document.getElementById('btn-cx-toggle');
+  if (toggle) toggle.textContent = '▼ ver';
+
+  carregarPedidos();
+  toast('✅ Caixa fechado!');
+}
 
 // ==================== IMPRESSÃO MANUAL ====================
-function imprimirAutomatico(p) {
+function gerarComandaHTML(p, titulo) {
   const mesaNum = p.mesa_numero || p.mesa_id;
+  const isViagem = !p.mesa_id;
   const itens = Array.isArray(p.order_details) ? p.order_details : [];
+  const subtotal = itens.reduce((s, i) => s + ((i.price || i.preco || 0) * (i.qty || 1)), 0);
+  const taxa = subtotal * 0.1;
+  const total = subtotal + taxa;
+  const dataHora = formatarDataHoraBR(p.created_at);
+
   let itensHtml = '';
-  for (let i = 0; i < itens.length; i++) {
-    const item = itens[i];
+  for (const item of itens) {
     const qtd = item.qty || 1;
     const nome = item.name || item.nome || '';
     const preco = (item.price || item.preco || 0) * qtd;
-    itensHtml += '<div class="item"><span>' + qtd + 'x ' + nome + '</span><span>' + R(preco) + '</span></div>';
+    itensHtml += `<tr><td>${qtd}x ${nome}</td><td style="text-align:right">${R(preco)}</td></tr>`;
   }
-  
-  let html = '<html><head><title>Pedido Mesa ' + mesaNum + '</title>';
-  html += '<style>';
-  html += 'body{font-family:monospace;font-size:13px;margin:10px;}';
-  html += 'h2{margin:0 0 5px}';
-  html += 'hr{border:none;border-top:1px dashed #000;margin:6px 0}';
-  html += '.item{display:flex;justify-content:space-between;padding:1px 0}';
-  html += '</style></head><body>';
-  html += '<h2>DIAZ DELICIAS</h2>';
-  html += '<div>Mesa: <b>' + mesaNum + '</b> | ' + formatarHoraBR(p.created_at) + '</div>';
-  if (p.client_name) { html += '<div>Cliente: ' + p.client_name + '</div>'; }
-  if (p.observacao) { html += '<div>Obs: ' + p.observacao + '</div>'; }
-  html += '<hr>' + itensHtml + '<hr>';
-  html += '<div class="item"><b>TOTAL</b><b>' + R(p.total_value || 0) + '</b></div>';
-  html += '</body></html>';
-  
+
+  return `<!DOCTYPE html><html><head>
+  <meta charset="UTF-8">
+  <title>${titulo || 'Comanda'}</title>
+  <style>
+    @media print { body { margin: 0; } }
+    body { font-family: monospace; font-size: 12px; max-width: 300px; margin: 0 auto; padding: 8px; }
+    .centro { text-align: center; }
+    .negrito { font-weight: bold; }
+    hr { border: none; border-top: 1px dashed #000; margin: 6px 0; }
+    hr.solid { border-top: 2px solid #000; }
+    table { width: 100%; border-collapse: collapse; }
+    td { padding: 2px 0; font-size: 12px; }
+    .total-row td { font-weight: bold; font-size: 14px; border-top: 2px solid #000; padding-top: 4px; }
+    .sub-row td { color: #444; }
+    .taxa-row td { color: #444; font-style: italic; }
+  </style>
+  </head><body>
+  <div class="centro negrito" style="font-size:16px;">DIAZ DELICIAS</div>
+  <div class="centro" style="font-size:10px;">Data: ${dataHora}</div>
+  <hr class="solid">
+  <div><b>${isViagem ? '🛵 ' + (p.nome_comanda || 'Viagem') : 'Mesa: ' + mesaNum}</b></div>
+  ${p.nome_comanda && !isViagem ? '<div>Comanda: ' + p.nome_comanda + '</div>' : ''}
+  ${p.client_name ? '<div>Cliente: ' + p.client_name + '</div>' : ''}
+  ${p.observacao ? '<div>Obs: ' + p.observacao + '</div>' : ''}
+  ${p.forma_pagamento ? '<div>Pagamento: ' + p.forma_pagamento + '</div>' : ''}
+  <hr>
+  <table>
+    <tr><th style="text-align:left">Item</th><th style="text-align:right">Valor</th></tr>
+    <hr>
+    ${itensHtml}
+    <tr class="sub-row"><td>Subtotal</td><td style="text-align:right">${R(subtotal)}</td></tr>
+    <tr class="taxa-row"><td>Taxa serviço (10%)</td><td style="text-align:right">${R(taxa)}</td></tr>
+    <tr class="total-row"><td>TOTAL</td><td style="text-align:right">${R(total)}</td></tr>
+  </table>
+  <hr class="solid">
+  <div class="centro" style="font-size:10px;margin-top:4px;">Obrigado pela preferência!</div>
+  </body></html>`;
+}
+
+function imprimirAutomatico(p) {
+  const html = gerarComandaHTML(p, 'Comprovante');
   const iframe = document.createElement('iframe');
-  iframe.style.display = 'none';
+  iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;';
   document.body.appendChild(iframe);
+  iframe.contentDocument.open();
   iframe.contentDocument.write(html);
   iframe.contentDocument.close();
-  
-  setTimeout(function() {
+  setTimeout(() => {
     iframe.contentWindow.print();
-    setTimeout(function() { iframe.remove(); }, 2000);
-  }, 400);
+    setTimeout(() => iframe.remove(), 3000);
+  }, 500);
 }
 
 async function imprimirPedido(id) {
@@ -1276,10 +1566,19 @@ async function confirmarFechamento() {
   carregarMesasMini();
 }
 
-// ==================== ADICIONAR ITEM ====================
+// ==================== ADICIONAR ITEM (com carrinho temporário) ====================
+let addItemCarrinho = []; // carrinho temporário dos novos itens
+
 function abrirAddItem(pedidoId) {
+  addItemCarrinho = []; // resetar carrinho
   document.getElementById('add-item-pedido-id').value = pedidoId;
   document.getElementById('add-item-busca').value = '';
+  document.getElementById('add-item-selecionados-wrap').style.display = 'none';
+  document.getElementById('add-item-selecionados').innerHTML = '';
+  const btnConfirmar = document.getElementById('btn-confirmar-add-itens');
+  btnConfirmar.disabled = true;
+  btnConfirmar.style.opacity = '.4';
+  btnConfirmar.style.cursor = 'not-allowed';
   renderItensModal('');
   document.getElementById('modal-add-item').classList.add('show');
 }
@@ -1299,7 +1598,7 @@ function renderItensModal(busca) {
   let html = '';
   for (let i = 0; i < filtrado.length; i++) {
     const p = filtrado[i];
-    html += '<div class="item-sel-row" onclick="addItemNaComanda(' + p.id + ')">';
+    html += '<div class="item-sel-row" onclick="selecionarItemParaAdd(' + p.id + ')">';
     html += '<div><div style="font-weight:600;font-size:.85rem">' + p.nome + '</div>';
     html += '<div style="font-size:.71rem;color:var(--txt2)">' + p.categoria + '</div></div>';
     html += '<div style="color:var(--verde);font-weight:700;font-size:.85rem">' + R(p.preco) + '</div>';
@@ -1308,27 +1607,137 @@ function renderItensModal(busca) {
   document.getElementById('add-item-lista').innerHTML = html;
 }
 
-async function addItemNaComanda(produtoId) {
-  const pedidoId = parseInt(document.getElementById('add-item-pedido-id').value);
-  const prod = todosProdutos.find(function(p) { return p.id === produtoId; });
+function selecionarItemParaAdd(produtoId) {
+  const prod = todosProdutos.find(p => p.id === produtoId);
   if (!prod) return;
-  
-  const { data, error } = await db.from('pedidos').select('order_details,total_value').eq('id', pedidoId).single();
-  if (error) { toast('Erro ao buscar pedido', 'err'); return; }
-  
-  const itens = Array.isArray(data.order_details) ? data.order_details.slice() : [];
-  const ex = itens.find(function(i) { return i.item_id === produtoId; });
-  if (ex) { ex.qty++; } else {
-    itens.push({ item_id: produtoId, name: prod.nome, price: prod.preco, qty: 1 });
+
+  // Adicionar ao carrinho temporário
+  const ex = addItemCarrinho.find(i => i.item_id === produtoId);
+  if (ex) ex.qty++;
+  else addItemCarrinho.push({ item_id: produtoId, name: prod.nome, price: prod.preco, qty: 1 });
+
+  // Atualizar display dos selecionados
+  renderAddItemSelecionados();
+  toast(prod.nome + ' +1', 'ok');
+}
+
+function removerItemAdd(produtoId) {
+  const idx = addItemCarrinho.findIndex(i => i.item_id === produtoId);
+  if (idx === -1) return;
+  if (addItemCarrinho[idx].qty > 1) addItemCarrinho[idx].qty--;
+  else addItemCarrinho.splice(idx, 1);
+  renderAddItemSelecionados();
+}
+
+function renderAddItemSelecionados() {
+  const wrap = document.getElementById('add-item-selecionados-wrap');
+  const lista = document.getElementById('add-item-selecionados');
+  const btn = document.getElementById('btn-confirmar-add-itens');
+
+  if (!addItemCarrinho.length) {
+    wrap.style.display = 'none';
+    btn.disabled = true;
+    btn.style.opacity = '.4';
+    btn.style.cursor = 'not-allowed';
+    return;
   }
-  
-  const total = itens.reduce(function(s, i) { return s + (i.price * i.qty); }, 0);
+
+  wrap.style.display = 'block';
+  btn.disabled = false;
+  btn.style.opacity = '1';
+  btn.style.cursor = 'pointer';
+
+  let html = '';
+  for (const item of addItemCarrinho) {
+    html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--borda);">
+      <span style="font-size:.82rem;">${item.qty}x ${item.name}</span>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="color:var(--verde);font-size:.8rem;font-weight:700;">${R(item.price * item.qty)}</span>
+        <button onclick="removerItemAdd(${item.item_id})" style="background:none;border:none;color:var(--vermelho);cursor:pointer;font-size:.85rem;">✕</button>
+      </div>
+    </div>`;
+  }
+  lista.innerHTML = html;
+}
+
+function cancelarAddItens() {
+  addItemCarrinho = [];
+  fecharModal('modal-add-item');
+}
+
+async function confirmarAddItens() {
+  if (!addItemCarrinho.length) return;
+  const pedidoId = parseInt(document.getElementById('add-item-pedido-id').value);
+
+  const { data, error } = await db.from('pedidos').select('order_details,total_value,mesa_id,nome_comanda').eq('id', pedidoId).single();
+  if (error) { toast('Erro ao buscar pedido', 'err'); return; }
+
+  // Mesclar itens novos com os existentes
+  const itens = Array.isArray(data.order_details) ? data.order_details.slice() : [];
+  for (const novo of addItemCarrinho) {
+    const ex = itens.find(i => i.item_id === novo.item_id);
+    if (ex) ex.qty += novo.qty;
+    else itens.push({ ...novo });
+  }
+
+  const total = itens.reduce((s, i) => s + (i.price * i.qty), 0);
   const { error: err2 } = await db.from('pedidos').update({ order_details: itens, total_value: total }).eq('id', pedidoId);
-  if (err2) { toast('Erro ao adicionar item', 'err'); return; }
-  
-  toast(prod.nome + ' adicionado!');
+  if (err2) { toast('Erro ao adicionar itens', 'err'); return; }
+
+  // Enviar APENAS os novos itens para cozinha
+  const pedidoInfo = pedidosAtuais.find(p => p.id === pedidoId);
+  const mesaNum = pedidoInfo ? (pedidoInfo.mesa_numero || pedidoInfo.mesa_id || '?') : '?';
+  const nomeCmd = pedidoInfo ? (pedidoInfo.nome_comanda || 'Comanda') : 'Comanda';
+  await imprimirNovosItensCozinha(addItemCarrinho, mesaNum, nomeCmd);
+
+  toast(`✅ ${addItemCarrinho.reduce((s,i)=>s+i.qty,0)} item(ns) adicionado(s) e enviado(s) para cozinha!`);
+  addItemCarrinho = [];
   fecharModal('modal-add-item');
   carregarPedidos();
+}
+
+// ==================== IMPRESSÃO NOVOS ITENS (sem taxa) ====================
+async function imprimirNovosItensCozinha(itensNovos, mesaNumero, nomeComanda) {
+  const dataHora = new Date().toLocaleString('pt-BR', { timeZone: TZ });
+
+  const itensHtml = itensNovos.map(item =>
+    `<tr>
+      <td style="padding:4px 0;border-bottom:1px dashed #ccc;font-size:14px;">
+        <strong>${item.qty}x ${item.name}</strong>
+      </td>
+    </tr>`
+  ).join('');
+
+  const printContent = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <style>
+    @media print { body { margin: 0; } }
+    body{font-family:monospace;font-size:13px;max-width:300px;margin:0 auto;padding:8px;}
+    .c{text-align:center;} .b{font-weight:bold;}
+    hr{border:none;border-top:2px solid #000;margin:6px 0;}
+    table{width:100%;border-collapse:collapse;}
+  </style></head><body>
+  <div class="c b" style="font-size:16px;">DIAZ DELICIAS</div>
+  <div class="c b" style="font-size:12px;color:#c00;">🔔 NOVO PEDIDO</div>
+  <div class="c" style="font-size:10px;">${dataHora}</div>
+  <hr>
+  <div class="b">Mesa: ${mesaNumero}</div>
+  <div>Comanda: ${nomeComanda}</div>
+  <hr>
+  <div class="b" style="font-size:11px;margin-bottom:4px;">ITENS:</div>
+  <table>${itensHtml}</table>
+  <hr>
+  <div class="c" style="font-size:10px;margin-top:4px;">— Diaz Delicias —</div>
+  </body></html>`;
+
+  const { error } = await db.from('impressoes_cozinha').insert({
+    mesa: mesaNumero,
+    comanda_nome: nomeComanda,
+    conteudo: printContent,
+    itens: itensNovos,
+    observacao: null,
+    data_hora: new Date().toISOString()
+  });
+  return !error;
 }
 
 // ==================== MESAS ====================
@@ -1722,8 +2131,8 @@ async function enviarPedidoCozinha() {
     
     if (updateError) throw updateError;
     
-    // Enviar para impressão
-    await imprimirNaCozinhaCozinha(cozinhaCarrinho, cozinhaMesaSelecionada.numero, nomeComanda, obs);
+    // Enviar para impressão (sem taxa - só lista dos itens para cozinha)
+    await imprimirNovosItensCozinha(cozinhaCarrinho, cozinhaMesaSelecionada.numero, nomeComanda);
     
     await db.from('mesas').update({ status: 'PREPARANDO' }).eq('id', cozinhaMesaSelecionada.id);
     
@@ -1740,29 +2149,37 @@ async function enviarPedidoCozinha() {
 
 async function imprimirNaCozinhaCozinha(itensNovos, mesaNumero, nomeComanda, obs) {
   const dataHora = new Date().toLocaleString('pt-BR', { timeZone: TZ });
-  
-  let itensHtml = '';
-  for (let i = 0; i < itensNovos.length; i++) {
-    const item = itensNovos[i];
-    itensHtml += `<li style="margin-bottom: 8px; font-size: 13pt; color: #000000; border-bottom: 1px dashed #000; padding-bottom: 4px;">
-      <strong>${item.qty}x ${item.name}</strong>
-    </li>`;
-  }
-  
-  const printContent = `
-    <div style="font-family: monospace; font-size: 14pt; line-height: 1.4; color: #000000;">
-      <h2 style="text-align: center; margin: 5px 0; font-size: 18pt; color: #000000;"><span style="color: #ff0000;">--- NOVO PEDIDO (COZINHA) ---</span></h2>
-      <h3 style="text-align: center; margin: 0 0 10px 0; font-size: 16pt; color: #000000;"><strong>COMANDA - MESA ${mesaNumero}</strong></h3>
-      <p style="text-align: center; margin: 0 0 8px 0; font-size: 13pt; color: #000000;"><strong>${nomeComanda}</strong></p>
-      <p style="border-top: 2px solid #000; padding-top: 8px; margin-bottom: 10px; font-size: 12pt; color: #000000;"><strong>Data: ${dataHora}</strong></p>
-      <h4 style="font-size: 14pt; margin: 15px 0 8px 0; border-bottom: 2px solid #000; padding-bottom: 5px; color: #000000;"><strong>ITENS:</strong></h4>
-      <ul style="list-style: none; padding: 0; margin: 0;">
-      ${itensHtml}
-      </ul>
-      ${obs ? `<div style="border-top: 2px solid #000; padding-top: 10px; margin-top: 15px;"><p style="font-size: 12pt; margin: 8px 0; color: #000000;"><strong>OBS: ${obs}</strong></p></div>` : ''}
-      <p style="border-top: 3px solid #000; padding-top: 12px; margin-top: 20px; text-align: right; font-size: 12pt; color: #000000;">PEDIDO DA COZINHA</p>
-    </div>
-  `;
+  const subtotal = itensNovos.reduce((s, i) => s + ((i.price || 0) * (i.qty || 1)), 0);
+  const taxa = subtotal * 0.1;
+  const total = subtotal + taxa;
+
+  let itensHtml = itensNovos.map(item =>
+    `<tr><td style="padding:3px 0;border-bottom:1px dashed #ccc;">${item.qty}x ${item.name}</td>` +
+    `<td style="text-align:right;padding:3px 0;border-bottom:1px dashed #ccc;">${R((item.price||0)*(item.qty||1))}</td></tr>`
+  ).join('');
+
+  const printContent = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <style>
+      body{font-family:monospace;font-size:13px;max-width:300px;margin:0 auto;padding:8px;}
+      .c{text-align:center;} .b{font-weight:bold;} hr{border:none;border-top:2px solid #000;margin:5px 0;}
+      table{width:100%;} td{font-size:12px;} .tr td{font-weight:bold;font-size:14px;border-top:2px solid #000;padding-top:4px;}
+    </style></head><body>
+    <div class="c b" style="font-size:16px;">DIAZ DELICIAS</div>
+    <div class="c" style="font-size:10px;">🔔 NOVO PEDIDO — COZINHA</div>
+    <div class="c" style="font-size:10px;">${dataHora}</div>
+    <hr>
+    <div class="b">Mesa: ${mesaNumero}</div>
+    <div>Comanda: ${nomeComanda}</div>
+    ${obs ? '<div style="background:#fff3cd;padding:3px 5px;margin:3px 0;border-left:3px solid #ffc107;font-weight:bold;">' + obs + '</div>' : ''}
+    <hr>
+    <table>${itensHtml}
+      <tr><td style="color:#555">Subtotal</td><td style="text-align:right;color:#555">${R(subtotal)}</td></tr>
+      <tr><td style="color:#555;font-style:italic">Taxa serviço (10%)</td><td style="text-align:right;color:#555;font-style:italic">${R(taxa)}</td></tr>
+      <tr class="tr"><td>TOTAL</td><td style="text-align:right">${R(total)}</td></tr>
+    </table>
+    <hr>
+    <div class="c" style="font-size:10px;margin-top:4px;">— Diaz Delicias —</div>
+    </body></html>`;
   
   const { error } = await db.from('impressoes_cozinha').insert({
     mesa: mesaNumero,
@@ -2415,17 +2832,38 @@ async function enviarPedidoViagem() {
 
     // Enviar para impressão
     const dataHora = new Date().toLocaleString('pt-BR', { timeZone: TZ });
-    let itensHtml = viagemCarrinho.map(i => `<li style="margin-bottom:6px;font-size:13pt;border-bottom:1px dashed #000;padding-bottom:3px;"><strong>${i.qty}x ${i.name}</strong></li>`).join('');
-    const printContent = `<div style="font-family:monospace;font-size:14pt;line-height:1.4;">
-      <h2 style="text-align:center;color:#ff0000;">--- PEDIDO VIAGEM ---</h2>
-      <h3 style="text-align:center;"><strong>🛵 ${cliente}</strong></h3>
-      ${tel ? '<p style="text-align:center;">📞 ' + tel + '</p>' : ''}
-      <p style="border-top:2px solid #000;padding-top:6px;"><strong>Data: ${dataHora}</strong></p>
-      <ul style="list-style:none;padding:0;">${itensHtml}</ul>
-      ${obs ? '<p><strong>OBS: ' + obs + '</strong></p>' : ''}
-      <p style="border-top:2px solid #000;padding-top:6px;text-align:right;"><strong>Total: ${R(total)}</strong></p>
-      ${viagemPagamento && viagemPagamento !== 'Pagar depois' ? '<p style="text-align:center;"><strong>Pago: ' + viagemPagamento + '</strong></p>' : '<p style="text-align:center;color:#ff0000;"><strong>PAGAR NA ENTREGA</strong></p>'}
-    </div>`;
+    const itensHtmlViagem = viagemCarrinho.map(item =>
+      `<tr><td style="padding:3px 0;border-bottom:1px dashed #ccc;">${item.qty}x ${item.name}</td>` +
+      `<td style="text-align:right;padding:3px 0;border-bottom:1px dashed #ccc;">${R((item.price||0)*(item.qty||1))}</td></tr>`
+    ).join('');
+    const subtotalViagem = total; // já calculado
+    const taxaViagem = subtotalViagem * 0.1;
+    const totalViagem = subtotalViagem + taxaViagem;
+
+    const printContent = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <style>
+      @media print { body { margin: 0; } }
+      body{font-family:monospace;font-size:12px;max-width:300px;margin:0 auto;padding:8px;}
+      .c{text-align:center;} .b{font-weight:bold;} hr{border:none;border-top:2px solid #000;margin:5px 0;}
+      table{width:100%;} td{font-size:12px;} .tr td{font-weight:bold;font-size:13px;border-top:2px solid #000;padding-top:3px;}
+    </style></head><body>
+    <div class="c b" style="font-size:15px;">DIAZ DELICIAS</div>
+    <div class="c b" style="font-size:11px;color:#c00;">🛵 PEDIDO VIAGEM</div>
+    <div class="c" style="font-size:10px;">${dataHora}</div>
+    <hr>
+    <div class="b">Cliente: ${cliente}</div>
+    ${tel ? '<div>Tel: ' + tel + '</div>' : ''}
+    ${obsCompleta ? '<div>OBS: ' + obsCompleta + '</div>' : ''}
+    <hr>
+    <table>${itensHtmlViagem}
+      <tr><td style="color:#555">Subtotal</td><td style="text-align:right;color:#555">${R(subtotalViagem)}</td></tr>
+      <tr><td style="color:#555;font-style:italic">Taxa (10%)</td><td style="text-align:right;color:#555">${R(taxaViagem)}</td></tr>
+      <tr class="tr"><td>TOTAL</td><td style="text-align:right">${R(totalViagem)}</td></tr>
+    </table>
+    <hr>
+    <div class="c b" style="font-size:11px;">${viagemPagamento && viagemPagamento !== 'Pagar depois' ? 'PAGO: ' + viagemPagamento : '⚠️ PAGAR NA ENTREGA'}</div>
+    <div class="c" style="font-size:10px;margin-top:4px;">— Diaz Delicias —</div>
+    </body></html>`;
 
     await db.from('impressoes_cozinha').insert({
       mesa: 0,
@@ -2448,6 +2886,91 @@ async function enviarPedidoViagem() {
     toast('Erro: ' + e.message, 'err');
   }
 }
+
+// ==================== AJ3: GERENCIAR GARÇOM ====================
+function alterarSenhaGarcom() {
+  const nova = document.getElementById('garcom-nova-senha').value;
+  const conf = document.getElementById('garcom-conf-senha').value;
+  if (!nova || nova.length < 6) return toast('Senha deve ter mínimo 6 caracteres', 'err');
+  if (nova !== conf) return toast('Senhas não conferem', 'err');
+  // Salvar nova senha no localStorage (sincroniza com PDV na próxima vez)
+  localStorage.setItem('garcom_senha_custom', nova);
+  // Também forçar logout para que garçom use nova senha
+  localStorage.removeItem('garcom_logado');
+  localStorage.removeItem('garcom_login_time');
+  document.getElementById('garcom-nova-senha').value = '';
+  document.getElementById('garcom-conf-senha').value = '';
+  toast('✅ Senha alterada! Garçom precisará fazer login novamente.', 'ok');
+  verificarSessaoGarcom();
+}
+
+function deslogarGarcom() {
+  if (!confirm('Forçar logout do garçom? Ele precisará fazer login novamente.')) return;
+  localStorage.removeItem('garcom_logado');
+  localStorage.removeItem('garcom_login_time');
+  toast('✅ Garçom deslogado remotamente!');
+  verificarSessaoGarcom();
+}
+
+function verificarSessaoGarcom() {
+  const logado = localStorage.getItem('garcom_logado');
+  const loginTime = localStorage.getItem('garcom_login_time');
+  const senhaCustom = localStorage.getItem('garcom_senha_custom');
+  const div = document.getElementById('garcom-status');
+  if (!div) return;
+  if (logado === 'true' && loginTime) {
+    const diff = (new Date() - new Date(loginTime)) / (1000*60*60);
+    div.innerHTML = `<span style="color:var(--verde)">🟢 Sessão ativa</span><br>
+      Login há ${diff < 1 ? Math.round(diff*60) + ' minutos' : diff.toFixed(1) + ' horas'}<br>
+      ${senhaCustom ? '🔑 Senha personalizada ativa' : '🔑 Senha padrão em uso'}`;
+  } else {
+    div.innerHTML = `<span style="color:var(--txt3)">⚫ Nenhuma sessão ativa</span><br>
+      ${senhaCustom ? '🔑 Senha personalizada configurada' : '🔑 Senha padrão (#Kwaii2020)'}`;
+  }
+}
+
+// ==================== AJ4: LIMPAR HISTÓRICO ====================
+async function limparTodoHistorico() {
+  if (!confirm('ATENCAO: Isso apagara TODAS as comandas concluidas permanentemente. Tem certeza?')) return;
+  if (!confirm('Confirme novamente: apagar TODO o histórico?')) return;
+  const { error } = await db.from('pedidos').delete().eq('status', 'CONCLUIDO');
+  if (error) return toast('Erro: ' + error.message, 'err');
+  toast('🗑️ Histórico limpo!');
+  carregarHistorico();
+}
+
+// Auto-excluir histórico a cada 15 dias
+async function autoLimparHistorico() {
+  try {
+    const limite = new Date();
+    limite.setDate(limite.getDate() - 15);
+    const { data, error } = await db.from('pedidos')
+      .delete()
+      .eq('status', 'CONCLUIDO')
+      .lt('created_at', limite.toISOString())
+      .select('id');
+    if (!error && data && data.length > 0) {
+      console.log(`✅ Auto-limpeza: ${data.length} comandas antigas removidas`);
+      toast(`🗑️ ${data.length} comanda(s) com +15 dias removida(s)`, 'info');
+    }
+  } catch(e) { console.log('Auto-limpeza erro:', e); }
+}
+
+// ==================== AJ5: KEEPALIVE SUPABASE (24h) ====================
+async function keepAliveSupabase() {
+  try {
+    await db.from('mesas').select('id', { count: 'exact', head: true });
+    const agora = new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+    console.log(`✅ [KeepAlive Supabase] ${agora} — conexão mantida ativa`);
+  } catch(e) {
+    console.log('⚠️ KeepAlive falhou:', e);
+  }
+}
+// Ping a cada 24 horas (86400000 ms)
+setInterval(keepAliveSupabase, 86400000);
+// Também rodar imediatamente e a cada hora para garantir
+setInterval(keepAliveSupabase, 3600000);
+console.log('✅ KeepAlive Supabase ativado (ping a cada 1h e 24h)');
 
 // ==================== REALTIME ====================
 function iniciarRealtime() {
@@ -2483,6 +3006,8 @@ function waitSB() {
     carregarMesasMini();
     carregarMesasSelect();
     carregarProdutos(); // carrega todosProdutos na inicialização para modais de pedido
+    autoLimparHistorico(); // auto-excluir comandas com +15 dias
+    keepAliveSupabase(); // primeiro ping imediato
     iniciarRealtime();
     iniciarImpressaoAutomatica();
     
