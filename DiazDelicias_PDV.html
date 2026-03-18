@@ -139,16 +139,38 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;font
   .col-carrinho{width:300px;display:flex;flex-direction:column;}
 }
 @media(max-width:699px){
-  .pedido-cols{position:relative;}
-  .col-cardapio,.col-carrinho{
-    position:absolute;inset:0;overflow-y:auto;
-    -webkit-overflow-scrolling:touch;padding:12px;
-    transition:transform .3s ease;
+  /* Layout UNIFICADO mobile: tudo em 1 coluna, sem abas */
+  .tab-toggle{display:none!important;}
+  .pedido-wrap{overflow-y:auto;-webkit-overflow-scrolling:touch;}
+  .pedido-cols{
+    flex-direction:column;
+    overflow:visible;
+    height:auto;
   }
-  .col-cardapio{transform:translateX(0);}
-  .col-carrinho{transform:translateX(100%);}
-  .show-carrinho .col-cardapio{transform:translateX(-100%);}
-  .show-carrinho .col-carrinho{transform:translateX(0);}
+  .col-cardapio{
+    flex:none;overflow-y:visible;
+    padding:10px;border-right:none;
+    border-bottom:2px solid var(--borda);
+    position:relative;transform:none!important;
+  }
+  .col-carrinho{
+    flex:none;width:100%;
+    position:relative;transform:none!important;
+    overflow-y:visible;display:flex!important;
+    flex-direction:column;
+  }
+  /* Carrinho compacto */
+  .carr-hdr{padding:8px 12px;}
+  .carr-titulo{font-size:.88rem;}
+  .carr-cliente{padding:6px 10px;}
+  .carr-itens{max-height:none;overflow-y:visible;padding:6px 10px;}
+  .carr-footer{padding:8px 10px;position:sticky;bottom:0;background:var(--card);z-index:10;border-top:1px solid var(--borda);}
+  .total-val{font-size:1.05rem;}
+  .btn-env{padding:11px;font-size:.84rem;}
+  .btn-fechar-cmd{padding:7px;font-size:.75rem;}
+  /* Item do carrinho compacto */
+  .carr-item{padding:5px 0;}
+  .ci-nome{font-size:.78rem;}
 }
 
 .dia-tabs{display:flex;overflow-x:auto;gap:5px;padding-bottom:8px;margin-bottom:6px;scrollbar-width:none;}
@@ -390,13 +412,15 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;font
           <div class="carr-mesa" id="carr-mesa-lbl">Mesa —</div>
         </div>
         <div class="carr-cliente">
-          <input type="text" id="inp-cliente" class="inp-sm" placeholder="👤 Nome do cliente (opcional)">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">
+            <span style="font-size:.72rem;color:var(--txt2);white-space:nowrap;">🔢 Comanda:</span>
+            <span id="carr-num-comanda" style="font-size:.82rem;font-weight:700;color:var(--ouro);">—</span>
+          </div>
+          <input type="text" id="inp-cliente" class="inp-sm" placeholder="👤 Nome do cliente (obrigatório para identificar)" style="border-color:rgba(247,37,133,.4);">
           <input type="text" id="inp-obs" class="inp-sm" placeholder="💬 Observação (opcional)">
         </div>
-        <div style="display:flex;gap:5px;margin-bottom:5px;">
-          <input type="text" id="inp-nome-comanda" class="inp-sm" placeholder="Nome da comanda (opcional)" value="Comanda Principal">
-          <button class="btn-ac" style="flex:none;width:40px;" onclick="editarNomeComanda()">✏️</button>
-        </div>
+        <!-- Campo oculto: número da comanda gerado automaticamente -->
+        <input type="hidden" id="inp-nome-comanda" value="Comanda 1">
         <div class="carr-itens" id="carr-itens">
           <div class="empty-st"><span>🛒</span><p>Adicione itens</p></div>
         </div>
@@ -442,7 +466,7 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;font
 </div>
 
 <!-- Botão instalar PWA -->
-<button class="pwa-install-btn" id="pwa-install-btn" onclick="instalarPWA()">
+<button class="pwa-install-btn hidden" id="pwa-install-btn" onclick="instalarPWA()">
   📲 Instalar App
 </button>
 
@@ -567,6 +591,10 @@ function iniciarPolling() {
     if (document.getElementById('tela-mesas').classList.contains('ativa')) {
       carregarMesas();
     }
+    // Atualizar status das comandas em tempo real
+    if (mesaAtual && document.getElementById('tela-comandas').classList.contains('ativa')) {
+      carregarComandas(mesaAtual.id);
+    }
   }, 3000);
 }
 
@@ -649,10 +677,13 @@ function renderComandas() {
     const itens = Array.isArray(c.order_details) ? c.order_details : [];
     const nome = c.nome_comanda || 'Comanda Principal';
     
+    // Cor do status
+    const stCores = { PENDENTE:'🔴', PREPARANDO:'🟡', PRONTO:'🔵' };
+    const stIcon = stCores[(c.status||'').toUpperCase()] || '⚪';
     html += `<div class="cmd-card" onclick="abrirComanda('${c.id}')">
-      <div class="cmd-card-t">${nome}</div>
+      <div class="cmd-card-t">${nome}${c.client_name ? ' — ' + c.client_name : ''}</div>
       <div class="cmd-card-info">
-        <span>🟡 ${c.status}</span>
+        <span>${stIcon} ${c.status}</span>
         <span>💰 ${R(c.total_value)}</span>
         <span>🕐 ${formatarHoraBR(c.created_at)}</span>
         <span>🛒 ${itens.length} itens</span>
@@ -670,7 +701,13 @@ function renderComandas() {
 }
 
 async function criarNovaComanda(mesaId, numeroMesa) {
-  const nomePadrao = `Comanda ${(comandasDaMesa.length + 1)}`;
+  // Buscar comandas abertas atuais para gerar número correto
+  const { data: existentes } = await db.from('pedidos')
+    .select('id')
+    .eq('mesa_id', mesaId)
+    .in('status', ['PENDENTE','PREPARANDO','PRONTO']);
+  const numAtual = (existentes ? existentes.length : 0) + 1;
+  const nomePadrao = `Comanda ${numAtual}`;
   
   const { data, error } = await db.from('pedidos').insert([{
     mesa_id: mesaId,
@@ -691,7 +728,14 @@ async function criarNovaComanda(mesaId, numeroMesa) {
   
   comandaAtual = data;
   carrinho = [];
+  // Número da comanda gerado automaticamente - NÃO editar pelo usuário
   document.getElementById('inp-nome-comanda').value = nomePadrao;
+  // Mostrar número no display
+  const numDisplay = document.getElementById('carr-num-comanda');
+  if (numDisplay) numDisplay.textContent = nomePadrao;
+  // Limpar campos para nova comanda
+  document.getElementById('inp-cliente').value = '';
+  document.getElementById('inp-obs').value = '';
   
   irTela('tela-pedido');
   carregarCardapio();
@@ -717,6 +761,8 @@ async function abrirComanda(id) {
   document.getElementById('inp-cliente').value = data.client_name || '';
   document.getElementById('inp-obs').value = data.observacao || '';
   document.getElementById('inp-nome-comanda').value = data.nome_comanda || 'Comanda Principal';
+  const numDisplayAb = document.getElementById('carr-num-comanda');
+  if (numDisplayAb) numDisplayAb.textContent = data.nome_comanda || 'Comanda Principal';
   
   irTela('tela-pedido');
   carregarCardapio();
@@ -730,12 +776,8 @@ function voltarComandas() {
   irTela('tela-comandas');
 }
 
-function editarNomeComanda() {
-  const novoNome = document.getElementById('inp-nome-comanda').value.trim();
-  if (novoNome && comandaAtual) {
-    comandaAtual.nome_comanda = novoNome;
-  }
-}
+// Comanda numerada automaticamente - não precisa editar manualmente
+function editarNomeComanda() { /* desabilitado - nome gerado automaticamente */ }
 
 // ==================== CARDÁPIO ====================
 async function carregarCardapio() {
@@ -835,15 +877,34 @@ function mostrarTodosProdutosLista(filtro = '') {
   
   let html = '';
   const filtroLower = filtro.toLowerCase();
+
+  // Calcular quais itens JÁ estão no cardápio do dia (para excluir da lista geral)
+  const diasSemana = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
+  const diaHoje = getDiaSemanaBR();
+  const hoje = diasSemana.indexOf(diaHoje);
+  const ehDiaUtil = hoje >= 1 && hoje <= 5;
+  const normalize = s => (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();
+  const idsNoDia = ehDiaUtil ? new Set(cardapioTodos.filter(item => {
+    if (!item.dias_semana) return false;
+    let dias; try { dias = Array.isArray(item.dias_semana) ? item.dias_semana : JSON.parse(item.dias_semana); } catch(e){dias=[];}
+    return dias.some(d => normalize(d) === normalize(diaHoje));
+  }).map(i => i.id)) : new Set();
   
-  let produtosFiltrados = cardapioTodos;
-  if (filtro) {
-    produtosFiltrados = cardapioTodos.filter(item => 
-      item.nome.toLowerCase().includes(filtroLower) ||
-      (item.categoria && item.categoria.toLowerCase().includes(filtroLower)) ||
-      item.preco.toString().includes(filtro)
-    );
-  }
+  let produtosFiltrados = filtro
+    ? cardapioTodos.filter(item => 
+        item.nome.toLowerCase().includes(filtroLower) ||
+        (item.categoria && item.categoria.toLowerCase().includes(filtroLower)) ||
+        item.preco.toString().includes(filtro)
+      )
+    : cardapioTodos.filter(item => {
+        if (idsNoDia.has(item.id)) return false; // excluir os do cardápio do dia
+        // Se dia útil, esconder categoria Pratos/Prato (já mostrada no cardápio do dia)
+        if (ehDiaUtil && idsNoDia.size > 0) {
+          const cat = (item.categoria || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+          if (cat === 'pratos' || cat === 'prato') return false;
+        }
+        return true;
+      }); // excluir cardápio do dia e pratos quando dia útil
   
   if (produtosFiltrados.length === 0) {
     listaDiv.innerHTML = '<div class="empty-st"><span>🔍</span><p>Nenhum produto encontrado</p></div>';
@@ -983,29 +1044,34 @@ async function enviarParaCozinha() {
 
 async function imprimirNaCozinha(itensNovos, mesaNumero, nomeComanda, obs) {
   const dataHora = new Date().toLocaleString('pt-BR', { timeZone: TZ });
-  
-  let itensHtml = '';
-  for (let i = 0; i < itensNovos.length; i++) {
-    const item = itensNovos[i];
-    itensHtml += `<li style="margin-bottom: 8px; font-size: 13pt; color: #000000; border-bottom: 1px dashed #000; padding-bottom: 4px;">
-      <strong>${item.qty}x ${item.name}</strong>
-    </li>`;
-  }
-  
-  const printContent = `
-    <div style="font-family: monospace; font-size: 14pt; line-height: 1.4; color: #000000;">
-      <h2 style="text-align: center; margin: 5px 0; font-size: 18pt; color: #000000;"><span style="color: #ff0000;">--- NOVO PEDIDO ---</span></h2>
-      <h3 style="text-align: center; margin: 0 0 10px 0; font-size: 16pt; color: #000000;"><strong>COMANDA - MESA ${mesaNumero}</strong></h3>
-      <p style="text-align: center; margin: 0 0 8px 0; font-size: 13pt; color: #000000;"><strong>${nomeComanda}</strong></p>
-      <p style="border-top: 2px solid #000; padding-top: 8px; margin-bottom: 10px; font-size: 12pt; color: #000000;"><strong>Data: ${dataHora}</strong></p>
-      <h4 style="font-size: 14pt; margin: 15px 0 8px 0; border-bottom: 2px solid #000; padding-bottom: 5px; color: #000000;"><strong>ITENS:</strong></h4>
-      <ul style="list-style: none; padding: 0; margin: 0;">
-      ${itensHtml}
-      </ul>
-      ${obs ? `<div style="border-top: 2px solid #000; padding-top: 10px; margin-top: 15px;"><p style="font-size: 12pt; margin: 8px 0; color: #000000;"><strong>OBS: ${obs}</strong></p></div>` : ''}
-      <p style="border-top: 3px solid #000; padding-top: 12px; margin-top: 20px; text-align: right; font-size: 12pt; color: #000000;">NOVOS ITENS ENVIADOS</p>
-    </div>
-  `;
+  const cliente = document.getElementById('inp-cliente') ? document.getElementById('inp-cliente').value.trim() : '';
+
+  const itensHtml = itensNovos.map(item =>
+    `<tr><td style="padding:4px 0;border-bottom:1px dashed #ccc;font-size:13px;"><strong>${item.qty}x ${item.name}</strong></td></tr>`
+  ).join('');
+
+  const printContent = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <style>
+    @media print { body { margin: 0; } }
+    body{font-family:monospace;font-size:12px;max-width:300px;margin:0 auto;padding:8px;}
+    .c{text-align:center;} .b{font-weight:bold;}
+    hr{border:none;border-top:2px solid #000;margin:6px 0;}
+    table{width:100%;border-collapse:collapse;}
+  </style></head><body>
+  <div class="c b" style="font-size:16px;">DIAZ DELICIAS</div>
+  <div class="c b" style="font-size:12px;color:#c00;">🔔 NOVO PEDIDO</div>
+  <div class="c" style="font-size:10px;">${dataHora}</div>
+  <hr>
+  <div class="b">Mesa: ${mesaNumero}</div>
+  <div>Comanda: ${nomeComanda}</div>
+  ${cliente ? '<div class="b">Cliente: ' + cliente + '</div>' : ''}
+  ${obs ? '<div>OBS: ' + obs + '</div>' : ''}
+  <hr>
+  <div class="b" style="margin-bottom:4px;">ITENS:</div>
+  <table>${itensHtml}</table>
+  <hr>
+  <div class="c" style="font-size:10px;margin-top:4px;">— Diaz Delicias —</div>
+  </body></html>`;
   
   const { error } = await db.from('impressoes_cozinha').insert({
     mesa: mesaNumero,
@@ -1127,9 +1193,13 @@ async function confirmarFechamento() {
 function iniciarRealtime() {
     db.channel('pdv-v4')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'mesas' }, (payload) => {
-            console.log('Mesa atualizada:', payload);
-            // Atualiza SEMPRE, independente da tela ativa
             carregarMesas();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, (payload) => {
+            // Atualizar lista de comandas em tempo real se estiver na tela-comandas
+            if (mesaAtual && document.getElementById('tela-comandas').classList.contains('ativa')) {
+                carregarComandas(mesaAtual.id);
+            }
         })
         .subscribe(st => {
             const ok = st === 'SUBSCRIBED';
@@ -1176,9 +1246,18 @@ let deferredPrompt = null;
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredPrompt = e;
-  // Mostrar botão de instalação
+  // Chrome detectou que pode instalar: mostrar botão
   const btn = document.getElementById('pwa-install-btn');
   if (btn) btn.classList.remove('hidden');
+});
+
+// Celular Android/iOS: mostrar botão sempre
+document.addEventListener('DOMContentLoaded', () => {
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (isMobile) {
+    const btn = document.getElementById('pwa-install-btn');
+    if (btn) btn.classList.remove('hidden');
+  }
 });
 
 window.addEventListener('appinstalled', () => {
@@ -1234,8 +1313,9 @@ async function instalarPWA() {
     return;
   }
 
-  // Desktop - aguardar prompt do Chrome
-  toast('Aguarde o Chrome oferecer a instalação, ou acesse pelo celular 📱', 'info');
+  // Desktop - o Chrome vai mostrar o prompt automaticamente na barra de endereço
+  // Só mostrar toast se realmente não houver prompt disponível
+  toast('Abra no celular Android para instalar 📱', 'info');
 }
 
 function mostrarModalPWA(titulo, instrucoes) {
