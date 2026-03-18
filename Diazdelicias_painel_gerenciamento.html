@@ -396,6 +396,9 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;min-
               <div id="cx-formas" style="font-size:.75rem;"></div>
               <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
                 <button class="btn-fx-cx" style="flex:1;margin:0;" onclick="baixarPDFCaixa()">📊 Ver Detalhes</button>
+                <button class="btn-fx-cx" style="flex:1;margin:0;border-color:var(--azul);color:var(--azul);" onclick="downloadPDFCaixa()">⬇️ Baixar PDF</button>
+              </div>
+              <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
                 <button class="btn-fx-cx" style="flex:1;margin:0;border-color:var(--vermelho);color:var(--vermelho);" onclick="limparCaixa()">🗑️ Limpar</button>
               </div>
               <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
@@ -603,9 +606,13 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;min-
     <div class="modal-titulo">Fazer Pedido - Mesa <span id="cozinha-mesa-numero"></span></div>
     <div id="cozinha-comanda-info" style="background:var(--card2);padding:8px;border-radius:8px;margin-bottom:6px;font-size:.82rem;"></div>
     <div style="display:flex;gap:6px;margin-bottom:10px;align-items:center;">
-      <input type="text" id="cozinha-nome-comanda" class="form-input" placeholder="Nome da comanda (ex: João, Família...)" style="flex:1;font-size:.82rem;padding:7px 10px;">
-      <button class="btn-prim" style="flex:none;width:auto;margin:0;padding:7px 12px;font-size:.78rem;" onclick="salvarNomeComandaCozinha()">✏️ Salvar</button>
+      <div style="flex:none;background:var(--card2);border:1px solid var(--borda);border-radius:7px;padding:7px 10px;font-size:.82rem;color:var(--txt2);">
+        🔢 <span id="cozinha-numero-comanda" style="font-weight:700;color:var(--ouro);">Comanda ?</span>
+      </div>
+      <input type="text" id="cozinha-cliente-nome" class="form-input" placeholder="👤 Nome do cliente (opcional)" style="flex:1;font-size:.82rem;padding:7px 10px;">
     </div>
+    <!-- Campo oculto para nome da comanda (gerado automaticamente) -->
+    <input type="hidden" id="cozinha-nome-comanda" value="">
 
     <!-- Cardápio do dia -->
     <div id="cozinha-cardapio-dia" style="margin-bottom:10px;"></div>
@@ -1113,7 +1120,10 @@ async function gerarHTMLCaixa() {
     return `<tr style="vertical-align:top;border-bottom:2px solid #ddd;${idx%2===0?'background:#fafafa':''}">
       <td style="padding:5px 4px;white-space:nowrap">${formatarDataHoraBR(p.created_at)}</td>
       <td style="padding:5px 4px;font-weight:bold">${mesa}</td>
-      <td style="padding:5px 4px">${p.nome_comanda && !p.mesa_id ? p.nome_comanda : (p.client_name || '-')}</td>
+      <td style="padding:5px 4px">
+        ${p.client_name ? '<strong>' + p.client_name + '</strong>' : ''}
+        ${p.nome_comanda ? '<span style="color:#666;font-size:10px;">' + (p.client_name ? '<br>' : '') + p.nome_comanda + '</span>' : (!p.client_name ? '-' : '')}
+      </td>
       <td style="padding:5px 4px"><ul style="margin:0;padding-left:14px;font-size:10px">${itensList}</ul></td>
       <td style="padding:5px 4px;text-align:center">${p.forma_pagamento||'-'}</td>
       <td style="padding:5px 4px;text-align:right;font-weight:bold;white-space:nowrap">${R(sub + sub*0.1)}</td>
@@ -1175,6 +1185,29 @@ async function baixarPDFCaixa() {
   const win = window.open('', '_blank');
   win.document.write(resultado.html);
   win.document.close();
+}
+
+// Download direto do PDF sem abrir nova aba
+async function downloadPDFCaixa() {
+  toast('Gerando PDF...', 'info');
+  const resultado = await gerarHTMLCaixa();
+  if (!resultado) return toast('Nenhuma comanda fechada hoje', 'err');
+  
+  const dataFmt = new Date().toLocaleDateString('pt-BR', {timeZone:'America/Sao_Paulo'}).replace(/\//g,'-');
+  
+  // Criar Blob com o HTML e disparar download
+  const blob = new Blob([resultado.html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Caixa-DiazDelicias-${dataFmt}.html`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+    a.remove();
+  }, 1000);
+  toast('✅ PDF baixado!');
 }
 
 // Chamado pelo Fechar Caixa — abre e aciona print automaticamente
@@ -1697,7 +1730,7 @@ async function confirmarAddItens() {
 }
 
 // ==================== IMPRESSÃO NOVOS ITENS (sem taxa) ====================
-async function imprimirNovosItensCozinha(itensNovos, mesaNumero, nomeComanda) {
+async function imprimirNovosItensCozinha(itensNovos, mesaNumero, nomeComanda, clienteNome) {
   const dataHora = new Date().toLocaleString('pt-BR', { timeZone: TZ });
 
   const itensHtml = itensNovos.map(item =>
@@ -1722,6 +1755,7 @@ async function imprimirNovosItensCozinha(itensNovos, mesaNumero, nomeComanda) {
   <hr>
   <div class="b">Mesa: ${mesaNumero}</div>
   <div>Comanda: ${nomeComanda}</div>
+  ${clienteNome ? '<div class="b">Cliente: ' + clienteNome + '</div>' : ''}
   <hr>
   <div class="b" style="font-size:11px;margin-bottom:4px;">ITENS:</div>
   <table>${itensHtml}</table>
@@ -1911,9 +1945,14 @@ async function abrirModalCozinhaPedido() {
     cozinhaCarrinho = [];
     renderCozinhaCarrinho();
     document.getElementById('cozinha-busca').value = '';
-    // Preencher campo nome com nome atual da comanda
-    const nomeAtual = cozinhaComandaSelecionada ? (cozinhaComandaSelecionada.nome_comanda || '') : '';
-    document.getElementById('cozinha-nome-comanda').value = nomeAtual;
+    // Preencher nº da comanda automaticamente
+    const numComanda = cozinhaComandaSelecionada ? (cozinhaComandaSelecionada.nome_comanda || ('Comanda ' + (cozinhaComandas.length))) : 'Comanda 1';
+    document.getElementById('cozinha-nome-comanda').value = numComanda;
+    const numEl = document.getElementById('cozinha-numero-comanda');
+    if (numEl) numEl.textContent = numComanda;
+    // Limpar campo cliente
+    const clienteEl = document.getElementById('cozinha-cliente-nome');
+    if (clienteEl) clienteEl.value = '';
     renderProdutosCozinha();
     document.getElementById('modal-cozinha-pedido').classList.add('show');
     
@@ -2094,9 +2133,10 @@ async function enviarPedidoCozinha() {
   
   const total = cozinhaCarrinho.reduce((s, i) => s + (i.price * i.qty), 0);
   const obs = document.getElementById('cozinha-obs').value.trim();
-  // Usar nome editado no campo se disponível
-  const nomeComandaEditado = document.getElementById('cozinha-nome-comanda') ? document.getElementById('cozinha-nome-comanda').value.trim() : '';
-  const nomeComanda = nomeComandaEditado || cozinhaComandaSelecionada.nome_comanda || 'Comanda Principal';
+  const nomeComandaAuto = document.getElementById('cozinha-nome-comanda') ? document.getElementById('cozinha-nome-comanda').value.trim() : '';
+  const clienteNomeCozinha = document.getElementById('cozinha-cliente-nome') ? document.getElementById('cozinha-cliente-nome').value.trim() : '';
+  // Nome da comanda = número (ex: "Comanda 2"), cliente vai em campo separado
+  const nomeComanda = nomeComandaAuto || cozinhaComandaSelecionada.nome_comanda || 'Comanda Principal';
   
   try {
     // Buscar itens atuais da comanda
@@ -2121,18 +2161,22 @@ async function enviarPedidoCozinha() {
       }
     }
     
-    // Atualizar pedido
-    const { error: updateError } = await db.from('pedidos').update({
+    // Atualizar pedido - salvar cliente e nome da comanda separados
+    const updatePayload = {
       order_details: novosItens,
       total_value: (pedidoAtual?.total_value || 0) + total,
       status: 'PREPARANDO',
-      observacao: obs || null
-    }).eq('id', cozinhaComandaSelecionada.id);
+      observacao: obs || null,
+      nome_comanda: nomeComandaAuto || cozinhaComandaSelecionada.nome_comanda
+    };
+    if (clienteNomeCozinha) updatePayload.client_name = clienteNomeCozinha;
+    
+    const { error: updateError } = await db.from('pedidos').update(updatePayload).eq('id', cozinhaComandaSelecionada.id);
     
     if (updateError) throw updateError;
     
     // Enviar para impressão (sem taxa - só lista dos itens para cozinha)
-    await imprimirNovosItensCozinha(cozinhaCarrinho, cozinhaMesaSelecionada.numero, nomeComanda);
+    await imprimirNovosItensCozinha(cozinhaCarrinho, cozinhaMesaSelecionada.numero, nomeComanda, clienteNomeCozinha);
     
     await db.from('mesas').update({ status: 'PREPARANDO' }).eq('id', cozinhaMesaSelecionada.id);
     
