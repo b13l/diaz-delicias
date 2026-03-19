@@ -602,7 +602,7 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;min-
 
 <!-- MODAL PARA COZINHA FAZER PEDIDO -->
 <div class="modal-ov" id="modal-cozinha-pedido">
-  <div class="modal-box" style="max-width:600px;">
+  <div class="modal-box" style="max-width:900px;max-height:95vh;display:flex;flex-direction:column;">
     <div class="modal-titulo">Fazer Pedido - Mesa <span id="cozinha-mesa-numero"></span></div>
     <div id="cozinha-comanda-info" style="background:var(--card2);padding:8px;border-radius:8px;margin-bottom:6px;font-size:.82rem;"></div>
     <div style="display:flex;gap:6px;margin-bottom:10px;align-items:center;">
@@ -614,33 +614,31 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;min-
     <!-- Campo oculto para nome da comanda (gerado automaticamente) -->
     <input type="hidden" id="cozinha-nome-comanda" value="">
 
-    <!-- Cardápio do dia -->
-    <div id="cozinha-cardapio-dia" style="margin-bottom:10px;"></div>
-
-    <!-- Todos os produtos -->
-    <div style="margin-bottom:6px;font-size:.75rem;color:var(--txt2);font-weight:600;">📋 TODOS OS PRODUTOS</div>
-    <div style="margin-bottom:10px;">
-      <input type="text" id="cozinha-busca" placeholder="🔍 Buscar produtos..." class="form-input" onkeyup="filtrarProdutosCozinha()">
-    </div>
-
-    <div id="cozinha-produtos-lista" style="max-height:220px;overflow-y:auto;margin-bottom:10px;"></div>
-    
-    <div style="background:var(--card2);padding:10px;border-radius:8px;margin-bottom:10px;">
-      <h4 style="color:var(--ouro);margin:0 0 5px 0;">Itens Selecionados</h4>
-      <div id="cozinha-itens-selecionados"></div>
-      <div style="display:flex;justify-content:space-between;margin-top:8px;">
-        <span>Total:</span>
-        <span id="cozinha-total" class="neon-verde">R$ 0,00</span>
+    <!-- Layout 2 colunas: produtos | carrinho -->
+    <div style="display:flex;gap:14px;flex:1;overflow:hidden;min-height:0;">
+      <!-- Coluna esquerda: cardápio + todos produtos -->
+      <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+        <div id="cozinha-cardapio-dia" style="margin-bottom:8px;flex-shrink:0;"></div>
+        <div style="margin-bottom:6px;font-size:.75rem;color:var(--txt2);font-weight:600;">📋 TODOS OS PRODUTOS</div>
+        <input type="text" id="cozinha-busca" placeholder="🔍 Buscar produtos..." class="form-input" onkeyup="filtrarProdutosCozinha()" style="margin-bottom:8px;flex-shrink:0;">
+        <div id="cozinha-produtos-lista" style="flex:1;overflow-y:auto;"></div>
       </div>
-    </div>
-    
-    <div style="margin-bottom:10px;">
-      <textarea id="cozinha-obs" class="form-input" placeholder="Observação..."></textarea>
-    </div>
-    
-    <div class="modal-actions">
-      <button class="btn-sec" onclick="fecharModal('modal-cozinha-pedido')">Cancelar</button>
-      <button class="btn-prim" onclick="enviarPedidoCozinha()" id="btn-enviar-cozinha">Enviar para Impressão</button>
+      <!-- Coluna direita: carrinho + obs + ações -->
+      <div style="width:280px;display:flex;flex-direction:column;flex-shrink:0;">
+        <div style="background:var(--card2);border:1px solid var(--borda);border-radius:10px;padding:10px;flex:1;overflow-y:auto;margin-bottom:8px;">
+          <div style="color:var(--ouro);font-weight:700;font-size:.82rem;margin-bottom:8px;">🛒 Itens Selecionados</div>
+          <div id="cozinha-itens-selecionados" style="min-height:60px;"></div>
+          <div style="display:flex;justify-content:space-between;margin-top:10px;padding-top:8px;border-top:1px solid var(--borda);font-weight:700;">
+            <span>Total:</span>
+            <span id="cozinha-total" class="neon-verde">R$ 0,00</span>
+          </div>
+        </div>
+        <textarea id="cozinha-obs" class="form-input" placeholder="Observação..." style="height:56px;resize:none;margin-bottom:8px;flex-shrink:0;"></textarea>
+        <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
+          <button class="btn-prim" onclick="enviarPedidoCozinha()" id="btn-enviar-cozinha" style="padding:12px;">✅ Enviar para Impressão</button>
+          <button class="btn-sec" onclick="fecharModal('modal-cozinha-pedido')" style="padding:10px;">Cancelar</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -1452,10 +1450,15 @@ function pedCardHTML(p) {
   const isViagem = !p.mesa_id;
   const jaPago = isViagem && p.forma_pagamento && p.forma_pagamento !== 'Pagar depois';
   // Mostrar Mesa X + nome da comanda (se tiver) ou 🛵 Viagem para pedidos sem mesa
-  const nomeCmd = p.nome_comanda && !p.nome_comanda.startsWith('Comanda ') && !p.nome_comanda.startsWith('🛵') ? p.nome_comanda : null;
+  // Mostrar: Mesa X | Comanda Y | Nome do cliente
   const labelMesa = p.mesa_numero
-    ? 'Mesa ' + p.mesa_numero + (nomeCmd ? ' — ' + nomeCmd : '')
+    ? 'Mesa ' + p.mesa_numero
     : (p.nome_comanda || '🛵 Viagem');
+  // Linha extra: comanda + cliente
+  const subLabel = p.mesa_numero
+    ? (p.nome_comanda ? '<span style="font-size:.72rem;color:var(--ouro);font-weight:600;">' + p.nome_comanda + '</span>' : '') +
+      (p.client_name ? '<span style="font-size:.72rem;color:var(--txt2);"> • 👤 ' + p.client_name + '</span>' : '')
+    : (p.client_name ? '<span style="font-size:.72rem;color:var(--txt2);">👤 ' + p.client_name + '</span>' : '');
   const statusTag = jaPago ? 'PAGO' : p.status;
   const statusLabel = jaPago ? '✅ PAGO' : p.status;
   const btnFechar = '<button class="btn-ac btn-fechar-cmd" onclick="abrirModalFechamento(' + p.id + ',' + p.mesa_id + ')">' + (isViagem ? '✅ Concluir' : 'Fechar') + '</button>';
@@ -1463,13 +1466,24 @@ function pedCardHTML(p) {
 
   return '<div class="ped-card ' + (isNovo ? 'novo neon' : '') + '">' +
     '<div class="ped-hdr">' +
-    '<div><div class="ped-mesa">' + labelMesa + '</div>' + detalhes + '</div>' +
+    '<div><div class="ped-mesa">' + labelMesa + '</div>' + (subLabel ? '<div style="margin-top:1px;">' + subLabel + '</div>' : '') + detalhes + '</div>' +
     '<div style="display:flex;align-items:center;gap:7px;">' +
     '<span class="ped-hora">' + formatarHoraBR(p.created_at) + '</span>' +
     '<span class="stag stag-' + statusTag + '">' + statusLabel + '</span>' +
     '</div></div>' +
     '<div class="ped-itens">' + itensHTML + '</div>' +
     '<div class="ped-total">Total: ' + R(p.total_value || 0) + '</div>' +
+    // AJ3: Alerta de bebidas pendentes
+    (bebidasPendentes[p.id] && bebidasPendentes[p.id].length ? 
+      '<div style="background:rgba(76,201,240,.12);border:1px solid var(--azul);border-radius:8px;padding:8px 10px;margin:6px 0;">' +
+      '<div style="font-size:.72rem;color:var(--azul);font-weight:700;margin-bottom:5px;">🥤 BEBIDAS PENDENTES — Aguardando entrega</div>' +
+      bebidasPendentes[p.id].map(b => 
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">' +
+        '<span style="font-size:.78rem;">' + b.qty + 'x ' + b.name + '</span>' +
+        '<button onclick="entregarBebida(' + p.id + ',\'' + b.name.replace(/'/g,"\\'\")") + '\')" style="background:var(--azul);color:#000;border:none;border-radius:5px;padding:2px 8px;font-size:.72rem;font-weight:700;cursor:pointer;">✅ Entregue</button>' +
+        '</div>'
+      ).join('') +
+      '</div>' : '') +
     '<div class="ped-actions">' +
     btnPrep + btnPronto +
     '<button class="btn-ac btn-add-item" onclick="abrirAddItem(' + p.id + ')">+ Item</button>' +
@@ -1757,16 +1771,70 @@ async function confirmarAddItens() {
   const { error: err2 } = await db.from('pedidos').update({ order_details: itens, total_value: total }).eq('id', pedidoId);
   if (err2) { toast('Erro ao adicionar itens', 'err'); return; }
 
-  // Enviar APENAS os novos itens para cozinha
+  // Separar bebidas de comida
   const pedidoInfo = pedidosAtuais.find(p => p.id === pedidoId);
   const mesaNum = pedidoInfo ? (pedidoInfo.mesa_numero || pedidoInfo.mesa_id || '?') : '?';
   const nomeCmd = pedidoInfo ? (pedidoInfo.nome_comanda || 'Comanda') : 'Comanda';
-  await imprimirNovosItensCozinha(addItemCarrinho, mesaNum, nomeCmd);
 
-  toast(`✅ ${addItemCarrinho.reduce((s,i)=>s+i.qty,0)} item(ns) adicionado(s) e enviado(s) para cozinha!`);
+  // Enriquecer itens com categoria (buscar de todosProdutos)
+  const itensEnriquecidos = addItemCarrinho.map(i => {
+    const prod = todosProdutos.find(p => p.id === i.item_id);
+    return { ...i, categoria: prod ? prod.categoria : '' };
+  });
+
+  const itensBebida = itensEnriquecidos.filter(i => isBebida(i));
+  const itensComida = itensEnriquecidos.filter(i => !isBebida(i));
+
+  // Bebidas: só alertar, não imprimir
+  if (itensBebida.length) {
+    adicionarBebidasPendentes(pedidoId, itensBebida);
+    const nomesB = itensBebida.map(b => b.qty + 'x ' + b.name).join(', ');
+    toast('🥤 Bebida(s) adicionada(s) — alerta na comanda: ' + nomesB, 'info');
+  }
+
+  // Comida: imprimir normalmente
+  if (itensComida.length) {
+    await imprimirNovosItensCozinha(itensComida, mesaNum, nomeCmd);
+  }
+
+  const totalItens = addItemCarrinho.reduce((s,i)=>s+i.qty,0);
+  toast(`✅ ${totalItens} item(ns) adicionado(s)!`);
   addItemCarrinho = [];
   fecharModal('modal-add-item');
   carregarPedidos();
+}
+
+// ==================== CATEGORIAS DE BEBIDAS ====================
+const CATEGORIAS_BEBIDA = ['bebidas', 'bebida', 'drinks', 'drink', 'refrigerante', 'sucos', 'suco', 'cervejas', 'cerveja'];
+
+function isBebida(item) {
+  const cat = (item.categoria || item.cat || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  const nome = (item.name || item.nome || '').toLowerCase();
+  return CATEGORIAS_BEBIDA.some(b => cat.includes(b) || nome.includes('refrigerante') || nome.includes('suco') || nome.includes('cerveja') || nome.includes('bebida'));
+}
+
+// Bebidas pendentes por pedido: { pedidoId: [{ name, qty, entregue }] }
+const bebidasPendentes = {};
+
+function adicionarBebidasPendentes(pedidoId, itensBebida) {
+  if (!bebidasPendentes[pedidoId]) bebidasPendentes[pedidoId] = [];
+  for (const b of itensBebida) {
+    const ex = bebidasPendentes[pedidoId].find(x => x.name === (b.name || b.nome));
+    if (ex) ex.qty += (b.qty || 1);
+    else bebidasPendentes[pedidoId].push({ name: b.name || b.nome, qty: b.qty || 1 });
+  }
+}
+
+function entregarBebida(pedidoId, nomeBebida) {
+  if (!bebidasPendentes[pedidoId]) return;
+  const idx = bebidasPendentes[pedidoId].findIndex(b => b.name === nomeBebida);
+  if (idx !== -1) {
+    bebidasPendentes[pedidoId].splice(idx, 1);
+    if (!bebidasPendentes[pedidoId].length) delete bebidasPendentes[pedidoId];
+  }
+  // Re-renderizar os pedidos para atualizar o alerta
+  renderPedidos(pedidosAtuais);
+  toast('✅ Bebida entregue: ' + nomeBebida);
 }
 
 // ==================== IMPRESSÃO NOVOS ITENS (sem taxa) ====================
@@ -2065,7 +2133,7 @@ function renderCardapioDiaCozinha() {
 }
 
 function renderProdutosCozinha(filtro = '') {
-  renderCardapioDiaCozinha();
+  // Cardápio do dia já renderizado ao abrir o modal - não re-renderizar ao filtrar
   const container = document.getElementById('cozinha-produtos-lista');
   if (!container) return;
   
@@ -2215,8 +2283,34 @@ async function enviarPedidoCozinha() {
     
     if (updateError) throw updateError;
     
-    // Enviar para impressão (sem taxa - só lista dos itens para cozinha)
-    await imprimirNovosItensCozinha(cozinhaCarrinho, cozinhaMesaSelecionada.numero, nomeComanda, clienteNomeCozinha);
+    // Separar bebidas de comida para impressão
+    const carrinhoEnriquecido = cozinhaCarrinho.map(i => {
+      const prod = todosProdutos.find(p => p.id === i.item_id);
+      return { ...i, categoria: prod ? prod.categoria : '' };
+    });
+    const isPrimeiroEnvio = itensAtuais.length === 0;
+
+    if (isPrimeiroEnvio) {
+      // Primeiro pedido: imprime tudo (cozinha precisa saber o pedido completo)
+      await imprimirNovosItensCozinha(cozinhaCarrinho, cozinhaMesaSelecionada.numero, nomeComanda, clienteNomeCozinha);
+      // Bebidas do primeiro pedido já ficam como pendentes
+      const bebidasPrimeiro = carrinhoEnriquecido.filter(i => isBebida(i));
+      if (bebidasPrimeiro.length) adicionarBebidasPendentes(cozinhaComandaSelecionada.id, bebidasPrimeiro);
+    } else {
+      // Pedido adicional: separar comida e bebidas
+      const itensBebidaCoz = carrinhoEnriquecido.filter(i => isBebida(i));
+      const itensComidaCoz = carrinhoEnriquecido.filter(i => !isBebida(i));
+      if (itensBebidaCoz.length) {
+        adicionarBebidasPendentes(cozinhaComandaSelecionada.id, itensBebidaCoz);
+        const nomesB = itensBebidaCoz.map(b => b.qty + 'x ' + b.name).join(', ');
+        toast('🥤 Bebida(s) anotada(s) — alerta na comanda: ' + nomesB, 'info');
+      }
+      if (itensComidaCoz.length) {
+        await imprimirNovosItensCozinha(itensComidaCoz, cozinhaMesaSelecionada.numero, nomeComanda, clienteNomeCozinha);
+      } else if (!itensBebidaCoz.length) {
+        await imprimirNovosItensCozinha(cozinhaCarrinho, cozinhaMesaSelecionada.numero, nomeComanda, clienteNomeCozinha);
+      }
+    }
     
     await db.from('mesas').update({ status: 'PREPARANDO' }).eq('id', cozinhaMesaSelecionada.id);
     
