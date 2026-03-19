@@ -939,6 +939,17 @@ async function verificarNovasImpressoes() {
                 if (impressoesProcessadas.has(novaImpressao.id)) continue;
                 impressoesProcessadas.add(novaImpressao.id);
                 tocarAlertaSonoro();
+                // AJ2: Notificação nativa no Windows (Electron)
+                if (window.electronAPI) {
+                  const itens = Array.isArray(novaImpressao.itens)
+                    ? novaImpressao.itens.map(i => (i.qty||1)+'x '+i.name).join(', ')
+                    : '';
+                  window.electronAPI.novoPedidoNotificacao({
+                    mesa: novaImpressao.mesa || '?',
+                    comanda: novaImpressao.comanda_nome || 'Nova comanda',
+                    itens: itens.substring(0, 80)
+                  });
+                }
                 await imprimirComandaCozinha(novaImpressao);
                 await apagarImpressaoComConfirmacao(novaImpressao.id);
                 await new Promise(resolve => setTimeout(resolve, 500));
@@ -1182,9 +1193,14 @@ async function gerarHTMLCaixa() {
 async function baixarPDFCaixa() {
   const resultado = await gerarHTMLCaixa();
   if (!resultado) return toast('Nenhuma comanda fechada hoje', 'err');
-  const win = window.open('', '_blank');
-  win.document.write(resultado.html);
-  win.document.close();
+  if (window.electronAPI) {
+    // App Windows: abre janela interna do Electron (sem about:blank)
+    window.electronAPI.abrirPDFJanela(resultado.html);
+  } else {
+    const win = window.open('', '_blank');
+    win.document.write(resultado.html);
+    win.document.close();
+  }
 }
 
 // Download direto do PDF sem abrir nova aba
@@ -1214,10 +1230,14 @@ async function downloadPDFCaixa() {
 async function gerarEBaixarPDFCaixa() {
   const resultado = await gerarHTMLCaixa();
   if (!resultado) return;
-  const win = window.open('', '_blank');
-  win.document.write(resultado.html);
-  win.document.close();
-  setTimeout(() => { try { win.print(); } catch(e) {} }, 700);
+  if (window.electronAPI) {
+    window.electronAPI.abrirPDFJanela(resultado.html);
+  } else {
+    const win = window.open('', '_blank');
+    win.document.write(resultado.html);
+    win.document.close();
+    setTimeout(() => { try { win.print(); } catch(e) {} }, 700);
+  }
 }
 
 async function limparCaixa() {
@@ -1335,6 +1355,26 @@ function imprimirAutomatico(p) {
   }, 500);
 }
 
+function marcarImpresso(pedidoId) {
+  imprimirPedido(pedidoId);
+  // Mostrar feedback visual "Impresso" no botão
+  const btn = document.getElementById('btn-print-' + pedidoId);
+  if (btn) {
+    btn.textContent = '✅ Impresso';
+    btn.style.color = 'var(--verde)';
+    btn.style.borderColor = 'var(--verde)';
+    btn.disabled = true;
+  }
+  // Notificação Electron
+  if (window.electronAPI) {
+    window.electronAPI.novoPedidoNotificacao({
+      mesa: '—',
+      comanda: 'Reimpressão enviada',
+      itens: 'Comanda #' + pedidoId
+    });
+  }
+}
+
 async function imprimirPedido(id) {
   const { data } = await db.from('pedidos').select('*, mesas(numero)').eq('id', id).single();
   if (data) {
@@ -1434,7 +1474,7 @@ function pedCardHTML(p) {
     btnPrep + btnPronto +
     '<button class="btn-ac btn-add-item" onclick="abrirAddItem(' + p.id + ')">+ Item</button>' +
     btnFechar +
-    '<button class="btn-ac btn-imprimir" onclick="imprimirPedido(' + p.id + ')">Print</button>' +
+    '<button class="btn-ac btn-imprimir" id="btn-print-' + p.id + '" onclick="marcarImpresso(' + p.id + ')">🖨️ Print</button>' +
     btnCancelar +
     '</div></div>';
 }
