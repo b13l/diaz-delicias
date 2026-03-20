@@ -989,21 +989,39 @@ function addItem(id) {
   const ex = carrinho.find(i => i.item_id === id);
   if (ex) {
     ex.qty++;
-    if (ex.status_cozinha === 'enviado') {
-      ex.status_cozinha = 'novo';
-    }
+    if (ex.status_cozinha === 'enviado') ex.status_cozinha = 'novo';
   } else {
     carrinho.push({
-      item_id: id,
-      name: item.nome,
-      price: item.preco,
-      qty: 1,
-      status_cozinha: 'novo'
+      item_id: id, name: item.nome,
+      price: item.preco, qty: 1, status_cozinha: 'novo'
     });
   }
   
   renderCarrinho();
   toast(item.nome + ' +1');
+  // AJ3: Auto-save no banco para aparecer em tempo real na cozinha
+  autoSalvarCarrinho();
+}
+
+// AJ3: Debounce para auto-save (evita muitas requisições simultâneas)
+let _autoSaveTimer = null;
+function autoSalvarCarrinho() {
+  if (!comandaAtual) return;
+  clearTimeout(_autoSaveTimer);
+  _autoSaveTimer = setTimeout(async () => {
+    try {
+      const total = carrinho.reduce((s, i) => s + (i.price * i.qty), 0);
+      // Salvar todos os itens (novos e enviados) para visibilidade na cozinha
+      const itensParaSalvar = carrinho.map(i => ({
+        item_id: i.item_id, name: i.name,
+        price: i.price, qty: i.qty
+      }));
+      await db.from('pedidos').update({
+        order_details: itensParaSalvar,
+        total_value: total
+      }).eq('id', comandaAtual.id);
+    } catch(e) { /* silencioso */ }
+  }, 600); // aguarda 600ms para agrupar vários adds rápidos
 }
 
 function updateQty(id, delta) {
@@ -1020,6 +1038,7 @@ function updateQty(id, delta) {
   }
   
   renderCarrinho();
+  autoSalvarCarrinho();
 }
 
 // ==================== CARRINHO ====================
