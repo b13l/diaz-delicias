@@ -595,7 +595,11 @@ function iniciarPolling() {
     if (mesaAtual && document.getElementById('tela-comandas').classList.contains('ativa')) {
       carregarComandas(mesaAtual.id);
     }
-  }, 3000);
+    // AJ1: Atualizar itens da comanda em tempo real na tela-pedido
+    if (comandaAtual && document.getElementById('tela-pedido').classList.contains('ativa')) {
+      sincronizarComandaAtual();
+    }
+  }, 2500);
 }
 
 function pararPolling() {
@@ -603,6 +607,52 @@ function pararPolling() {
     clearInterval(pollingInterval);
     pollingInterval = null;
   }
+}
+
+// ==================== SYNC COMANDA EM TEMPO REAL ====================
+async function sincronizarComandaAtual() {
+  if (!comandaAtual) return;
+  try {
+    const { data } = await db.from('pedidos')
+      .select('id,status,order_details,total_value,client_name,nome_comanda,observacao')
+      .eq('id', comandaAtual.id)
+      .single();
+    if (!data) return;
+
+    // Verificar se mudou algo relevante
+    const itensAntes = JSON.stringify(comandaAtual.order_details || []);
+    const itensDepois = JSON.stringify(data.order_details || []);
+    const statusMudou = data.status !== comandaAtual.status;
+    const itensMudaram = itensAntes !== itensDepois;
+
+    if (!itensMudaram && !statusMudou) return; // nada mudou
+
+    // Atualizar local sem perder itens do carrinho que ainda não foram enviados
+    const novosNoBank = (data.order_details || []).filter(bi =>
+      !carrinho.some(ci => ci.item_id === bi.item_id && ci.status_cozinha === 'novo')
+    );
+
+    // Reconstruir carrinho: itens enviados vêm do banco, novos ficam como estão
+    const carrinhoNovos = carrinho.filter(ci => ci.status_cozinha === 'novo');
+    const carrinhoEnviados = (data.order_details || []).map(bi => ({
+      item_id: bi.item_id,
+      name: bi.name || bi.nome,
+      price: bi.price || bi.preco,
+      qty: bi.qty,
+      status_cozinha: 'enviado'
+    }));
+
+    // Merge: enviados do banco + novos do carrinho local
+    carrinho = [...carrinhoEnviados];
+    for (const novo of carrinhoNovos) {
+      const ex = carrinho.find(c => c.item_id === novo.item_id);
+      if (ex) ex.qty += novo.qty;
+      else carrinho.push(novo);
+    }
+
+    comandaAtual = { ...comandaAtual, ...data };
+    renderCarrinho();
+  } catch(e) { /* silencioso */ }
 }
 
 // ==================== MESAS ====================
