@@ -1016,10 +1016,20 @@ function autoSalvarCarrinho() {
         item_id: i.item_id, name: i.name,
         price: i.price, qty: i.qty
       }));
-      await db.from('pedidos').update({
+      // Salvar também cliente e comanda para identificação no painel
+      const clienteAtual = document.getElementById('inp-cliente') ?
+        document.getElementById('inp-cliente').value.trim() : '';
+      const nomeComandaAtual = document.getElementById('inp-nome-comanda') ?
+        document.getElementById('inp-nome-comanda').value.trim() : '';
+      
+      const updateData = {
         order_details: itensParaSalvar,
         total_value: total
-      }).eq('id', comandaAtual.id);
+      };
+      if (clienteAtual) updateData.client_name = clienteAtual;
+      if (nomeComandaAtual) updateData.nome_comanda = nomeComandaAtual;
+      
+      await db.from('pedidos').update(updateData).eq('id', comandaAtual.id);
     } catch(e) { /* silencioso */ }
   }, 600); // aguarda 600ms para agrupar vários adds rápidos
 }
