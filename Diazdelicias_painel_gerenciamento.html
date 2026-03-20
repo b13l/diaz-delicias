@@ -2074,6 +2074,7 @@ async function abrirModalCozinhaPedido() {
     // Limpar campo cliente
     const clienteEl = document.getElementById('cozinha-cliente-nome');
     if (clienteEl) clienteEl.value = '';
+    renderCardapioDiaCozinha(); // Mostrar cardápio do dia PRIMEIRO
     renderProdutosCozinha();
     document.getElementById('modal-cozinha-pedido').classList.add('show');
     
