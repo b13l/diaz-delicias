@@ -3205,8 +3205,18 @@ function forcarAtualizacaoMesas() {
     carregarMesasMini();
 }
 
-// Chamar a cada 5 segundos como fallback
+// Atualizar mesas a cada 5s como fallback
 setInterval(forcarAtualizacaoMesas, 5000);
+
+// AJ2: Polling dedicado para pedidos PENDENTES com itens novos (1.5s)
+// Garante que itens adicionados pelo garçom aparecem sem esperar o realtime
+setInterval(async () => {
+  // Só rodar se estiver na aba principal
+  if (document.getElementById('pg-principal') &&
+      document.getElementById('pg-principal').classList.contains('ativa')) {
+    await carregarPedidos();
+  }
+}, 1500);
 
 function waitSB() {
   if (typeof supabase !== 'undefined' && typeof supabase.createClient === 'function') {
