@@ -602,7 +602,7 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;min-
 
 <!-- MODAL PARA COZINHA FAZER PEDIDO -->
 <div class="modal-ov" id="modal-cozinha-pedido">
-  <div class="modal-box" style="max-width:900px;max-height:95vh;display:flex;flex-direction:column;">
+  <div class="modal-box" style="max-width:98vw;width:1200px;max-height:97vh;height:92vh;display:flex;flex-direction:column;padding:16px;">
     <div class="modal-titulo">Fazer Pedido - Mesa <span id="cozinha-mesa-numero"></span></div>
     <div id="cozinha-comanda-info" style="background:var(--card2);padding:8px;border-radius:8px;margin-bottom:6px;font-size:.82rem;"></div>
     <div style="display:flex;gap:6px;margin-bottom:10px;align-items:center;">
@@ -942,10 +942,13 @@ async function verificarNovasImpressoes() {
                   const itens = Array.isArray(novaImpressao.itens)
                     ? novaImpressao.itens.map(i => (i.qty||1)+'x '+i.name).join(', ')
                     : '';
+                  const itensArr = Array.isArray(novaImpressao.itens) ? novaImpressao.itens : [];
                   window.electronAPI.novoPedidoNotificacao({
                     mesa: novaImpressao.mesa || '?',
                     comanda: novaImpressao.comanda_nome || 'Nova comanda',
-                    itens: itens.substring(0, 80)
+                    cliente: novaImpressao.cliente || '',
+                    itens: itensArr.map(i => (i.qty||1) + 'x ' + (i.name||i.nome||'')),
+                    tipo: 'novo'
                   });
                 }
                 await imprimirComandaCozinha(novaImpressao);
@@ -1367,8 +1370,10 @@ function marcarImpresso(pedidoId) {
   if (window.electronAPI) {
     window.electronAPI.novoPedidoNotificacao({
       mesa: '—',
-      comanda: 'Reimpressão enviada',
-      itens: 'Comanda #' + pedidoId
+      comanda: 'Reimpressão',
+      cliente: '',
+      itens: ['Comanda #' + pedidoId],
+      tipo: 'reimpressao'
     });
   }
 }
@@ -1797,6 +1802,14 @@ async function confirmarAddItens() {
     await imprimirNovosItensCozinha(itensComida, mesaNum, nomeCmd);
   }
 
+  // AJ4: Atualizar status da mesa para PREPARANDO
+  const pedidoInfoAtual = pedidosAtuais.find(p => p.id === pedidoId);
+  if (pedidoInfoAtual && pedidoInfoAtual.mesa_id) {
+    await db.from('mesas').update({ status: 'PREPARANDO' }).eq('id', pedidoInfoAtual.mesa_id);
+    await db.from('pedidos').update({ status: 'PREPARANDO' }).eq('id', pedidoId);
+    carregarMesasMini();
+  }
+
   const totalItens = addItemCarrinho.reduce((s,i)=>s+i.qty,0);
   toast(`✅ ${totalItens} item(ns) adicionado(s)!`);
   addItemCarrinho = [];
@@ -2153,22 +2166,39 @@ function renderProdutosCozinha(filtro = '') {
     return;
   }
   
+  // Ocultar categoria PRATOS quando há cardápio do dia ativo
+  const diaHojeCoz = getDiaSemanaCozinha();
+  const diasUtilCoz = ['segunda','terca','quarta','quinta','sexta'];
+  const temCardapioDia = diasUtilCoz.includes(diaHojeCoz) &&
+    todosProdutos.some(p => {
+      if (!p.dias_semana) return false;
+      let dias; try { dias = Array.isArray(p.dias_semana) ? p.dias_semana : JSON.parse(p.dias_semana); } catch(e){dias=[];}
+      const norm = s => (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+      return dias.some(d => norm(d) === norm(diaHojeCoz));
+    });
+
   const cats = [...new Set(produtos.map(p => p.categoria))];
-  
+
   for (let c = 0; c < cats.length; c++) {
     const cat = cats[c];
+    if (temCardapioDia && !filtro) {
+      const catNorm = (cat||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+      if (catNorm === 'pratos' || catNorm === 'prato') continue;
+    }
     html += `<div class="cat-hdr">${cat.toUpperCase()}</div>`;
-    
     for (let i = 0; i < produtos.length; i++) {
       const p = produtos[i];
       if (p.categoria === cat) {
-        html += `<div class="item-card" style="margin-bottom:5px;">
-          <div class="item-info">
-            <div class="item-nome">${p.nome}</div>
-            <div class="item-cat">${p.categoria}</div>
+        html += `<div style="display:flex;align-items:center;gap:8px;padding:7px 8px;border-bottom:1px solid rgba(255,255,255,.04);border-radius:6px;margin-bottom:2px;">
+          <div style="flex:1;">
+            <div style="font-size:.84rem;font-weight:600;">${p.nome}</div>
+            <div style="font-size:.68rem;color:var(--txt2);">${p.categoria}</div>
           </div>
-          <div class="item-preco">${R(p.preco)}</div>
-          <button class="btn-add" onclick="addItemCozinha(${p.id}, '${p.nome.replace(/'/g, "\\'")}', ${p.preco})">+</button>
+          <div style="font-size:.82rem;color:var(--verde);font-weight:700;white-space:nowrap;">${R(p.preco)}</div>
+          <button onclick="addItemCozinha(${p.id}, '${p.nome.replace(/'/g, "\'")}', ${p.preco})"
+            style="background:var(--verde-esc);color:#000;border:none;border-radius:6px;padding:5px 10px;font-size:.78rem;font-weight:700;cursor:pointer;white-space:nowrap;">
+            + Adicionar
+          </button>
         </div>`;
       }
     }
