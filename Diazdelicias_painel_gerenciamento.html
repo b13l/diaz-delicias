@@ -456,6 +456,7 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;min-
       </div>
       <div class="card-box" style="flex:1;">
         <div class="card-box-titulo">Todos os Produtos</div>
+        <input type="text" id="busca-prods-catalogo" class="form-input" placeholder="🔍 Pesquisar produto..." oninput="filtrarCatalogo()" style="margin-bottom:10px;">
         <div id="prods-lista" class="lista-scroll"></div>
       </div>
     </div>
@@ -716,7 +717,7 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;min-
 
 <!-- MODAL PEDIDO VIAGEM -->
 <div class="modal-ov" id="modal-viagem">
-  <div class="modal-box" style="max-width:640px;">
+  <div class="modal-box" style="max-width:98vw;width:1100px;max-height:97vh;height:90vh;display:flex;flex-direction:column;padding:16px;">
     <div class="modal-titulo">🛵 Pedido para Viagem</div>
     <div class="form-row" style="margin-bottom:10px;">
       <div class="form-group"><label class="form-label">Nome do Cliente</label>
@@ -727,46 +728,44 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;min-
       </div>
     </div>
 
-    <!-- Cardápio do dia viagem -->
-    <div id="viagem-cardapio-dia" style="margin-bottom:10px;"></div>
-
-    <div style="margin-bottom:6px;font-size:.75rem;color:var(--txt2);font-weight:600;">📋 TODOS OS PRODUTOS</div>
-    <div style="margin-bottom:8px;">
-      <input type="text" id="viagem-busca" class="form-input" placeholder="🔍 Buscar produtos..." onkeyup="filtrarProdutosViagem()">
-    </div>
-    <div id="viagem-produtos-lista" style="max-height:200px;overflow-y:auto;margin-bottom:10px;"></div>
-
-    <div style="background:var(--card2);padding:10px;border-radius:8px;margin-bottom:10px;">
-      <h4 style="color:var(--ouro);margin:0 0 5px 0;font-size:.85rem;">🛒 Itens do Pedido</h4>
-      <div id="viagem-itens-selecionados"></div>
-      <div style="display:flex;justify-content:space-between;margin-top:8px;font-weight:700;">
-        <span>Total:</span>
-        <span id="viagem-total" style="color:var(--verde);">R$ 0,00</span>
+    <!-- Layout 2 colunas igual ao modal da cozinha -->
+    <div style="display:flex;gap:14px;flex:1;overflow:hidden;min-height:0;">
+      <!-- Coluna esquerda: cardápio + todos produtos -->
+      <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+        <div id="viagem-cardapio-dia" style="margin-bottom:8px;flex-shrink:0;"></div>
+        <div style="margin-bottom:6px;font-size:.75rem;color:var(--txt2);font-weight:600;">📋 TODOS OS PRODUTOS</div>
+        <input type="text" id="viagem-busca" class="form-input" placeholder="🔍 Buscar produtos..." onkeyup="filtrarProdutosViagem()" style="margin-bottom:8px;flex-shrink:0;">
+        <div id="viagem-produtos-lista" style="flex:1;overflow-y:auto;"></div>
       </div>
-    </div>
-
-    <div class="form-group"><label class="form-label">Observação</label>
-      <input type="text" id="viagem-obs" class="form-input" placeholder="Ex: sem cebola...">
-    </div>
-
-    <!-- Pagamento antecipado -->
-    <div style="margin-bottom:10px;">
-      <div style="font-size:.75rem;color:var(--txt2);margin-bottom:6px;font-weight:600;">💳 Pagamento:</div>
-      <div class="pagamento-grid">
-        <div class="pag-btn" onclick="selPagViagem('Pagar depois',this)" id="vpag-depois">⏳ Pagar depois</div>
-        <div class="pag-btn" onclick="selPagViagem('Dinheiro',this)">💵 Dinheiro</div>
-        <div class="pag-btn" onclick="selPagViagem('PIX',this)">🔵 PIX</div>
-        <div class="pag-btn" onclick="selPagViagem('Cartão',this)">💳 Cartão</div>
+      <!-- Coluna direita: carrinho + pagamento + ações -->
+      <div style="width:300px;display:flex;flex-direction:column;flex-shrink:0;gap:8px;">
+        <div style="background:var(--card2);border:1px solid var(--borda);border-radius:10px;padding:10px;flex:1;overflow-y:auto;">
+          <div style="color:var(--ouro);font-weight:700;font-size:.82rem;margin-bottom:8px;">🛒 Itens do Pedido</div>
+          <div id="viagem-itens-selecionados" style="min-height:40px;"></div>
+          <div style="display:flex;justify-content:space-between;margin-top:10px;padding-top:8px;border-top:1px solid var(--borda);font-weight:700;">
+            <span>Total:</span>
+            <span id="viagem-total" style="color:var(--verde);">R$ 0,00</span>
+          </div>
+        </div>
+        <input type="text" id="viagem-obs" class="form-input" placeholder="Observação (ex: sem cebola...)" style="flex-shrink:0;">
+        <div style="flex-shrink:0;">
+          <div style="font-size:.72rem;color:var(--txt2);margin-bottom:5px;font-weight:600;">💳 Pagamento:</div>
+          <div class="pagamento-grid">
+            <div class="pag-btn" onclick="selPagViagem('Pagar depois',this)" id="vpag-depois">⏳ Pagar depois</div>
+            <div class="pag-btn" onclick="selPagViagem('Dinheiro',this)">💵 Dinheiro</div>
+            <div class="pag-btn" onclick="selPagViagem('PIX',this)">🔵 PIX</div>
+            <div class="pag-btn" onclick="selPagViagem('Cartão',this)">💳 Cartão</div>
+          </div>
+          <div id="viagem-troco-area" style="display:none;margin-top:8px;">
+            <input type="number" id="viagem-dinheiro" class="form-input" placeholder="Valor pago R$" step="0.01" oninput="calcTrocoViagem()">
+            <div id="viagem-troco-info" style="text-align:center;font-size:.82rem;color:var(--verde);font-weight:700;margin-top:4px;"></div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
+          <button class="btn-prim" onclick="enviarPedidoViagem()" id="btn-enviar-viagem" style="padding:12px;">🛵 Enviar Pedido</button>
+          <button class="btn-sec" onclick="fecharModal('modal-viagem')" style="padding:10px;">Cancelar</button>
+        </div>
       </div>
-      <div id="viagem-troco-area" style="display:none;margin-top:8px;">
-        <input type="number" id="viagem-dinheiro" class="form-input" placeholder="Valor pago R$" step="0.01" oninput="calcTrocoViagem()">
-        <div id="viagem-troco-info" style="text-align:center;font-size:.82rem;color:var(--verde);font-weight:700;margin-top:4px;"></div>
-      </div>
-    </div>
-
-    <div class="modal-actions">
-      <button class="btn-sec" onclick="fecharModal('modal-viagem')">Cancelar</button>
-      <button class="btn-prim" onclick="enviarPedidoViagem()" id="btn-enviar-viagem">🛵 Enviar Pedido</button>
     </div>
   </div>
 </div>
@@ -1030,7 +1029,15 @@ function trocarPg(id, el) {
   if (id === 'pg-cardapio') { carregarProdutos(); carregarDiaLista(); }
   if (id === 'pg-historico') carregarHistorico();
   if (id === 'pg-estoque') renderEstoque(getEstoque());
-  if (id === 'pg-garcom') verificarSessaoGarcom();
+  if (id === 'pg-garcom') {
+    verificarSessaoGarcom();
+    // Polling de 5s para atualizar status em tempo real
+    clearInterval(_garcomPolling);
+    _garcomPolling = setInterval(verificarSessaoGarcom, 5000);
+  } else {
+    clearInterval(_garcomPolling);
+    _garcomPolling = null;
+  }
 }
 
 // ==================== CAIXA ====================
@@ -2134,12 +2141,15 @@ function renderCardapioDiaCozinha() {
     itensDia.filter(p => p.categoria === cat).forEach(p => {
       html += `<div class="item-card" style="margin-bottom:4px;">
         <div class="item-info">
-          <div class="item-nome">${p.nome}</div>
-          <div class="item-cat">${p.categoria}</div>
+          <div style="font-size:.86rem;font-weight:700;">${p.nome}</div>
+          ${p.descricao ? '<div style="font-size:.68rem;color:var(--txt2);">' + p.descricao + '</div>' : ''}
         </div>
-        <div class="item-preco">${R(p.preco)}</div>
-        <button class="btn-add" onclick="addItemCozinha(${p.id}, '${p.nome.replace(/'/g, "\\'")}', ${p.preco})">+</button>
-      </div>`;
+        <div style="font-size:.85rem;color:var(--verde);font-weight:700;white-space:nowrap;">${R(p.preco)}</div>
+        <button onclick="addItemCozinha(${p.id}, '${p.nome.replace(/'/g, "\'")}", ${p.preco})"
+          style="background:var(--verde-esc);color:#000;border:none;border-radius:6px;padding:6px 12px;font-size:.78rem;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0;">
+          + Adicionar
+        </button>
+      </div>`
     });
   }
   html += `</div>`;
@@ -2182,10 +2192,9 @@ function renderProdutosCozinha(filtro = '') {
 
   for (let c = 0; c < cats.length; c++) {
     const cat = cats[c];
-    if (temCardapioDia && !filtro) {
-      const catNorm = (cat||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
-      if (catNorm === 'pratos' || catNorm === 'prato') continue;
-    }
+    // Nunca mostrar Pratos em TODOS OS PRODUTOS da cozinha
+    const catNorm = (cat||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+    if (catNorm === 'pratos' || catNorm === 'prato' || catNorm === 'todos os pratos') continue;
     html += `<div class="cat-hdr">${cat.toUpperCase()}</div>`;
     for (let i = 0; i < produtos.length; i++) {
       const p = produtos[i];
@@ -2402,6 +2411,37 @@ async function imprimirNaCozinhaCozinha(itensNovos, mesaNumero, nomeComanda, obs
   return !error;
 }
 
+// ==================== FILTRO CATÁLOGO (AJ3) ====================
+function filtrarCatalogo() {
+  const termo = (document.getElementById('busca-prods-catalogo')?.value || '').toLowerCase();
+  const divs = document.querySelectorAll('#prods-lista .li');
+  let catHeaders = document.querySelectorAll('#prods-lista .cat-hdr');
+  
+  if (!termo) {
+    divs.forEach(d => d.style.display = '');
+    catHeaders.forEach(h => h.style.display = '');
+    return;
+  }
+  
+  // Esconder/mostrar itens por nome
+  divs.forEach(d => {
+    const nome = (d.querySelector('.li-nome')?.textContent || '').toLowerCase();
+    const cat = (d.querySelector('.li-sub')?.textContent || '').toLowerCase();
+    d.style.display = (nome.includes(termo) || cat.includes(termo)) ? '' : 'none';
+  });
+  
+  // Esconder headers de categorias vazias
+  catHeaders.forEach(h => {
+    let next = h.nextElementSibling;
+    let temVisivel = false;
+    while (next && !next.classList.contains('cat-hdr')) {
+      if (next.style.display !== 'none') temVisivel = true;
+      next = next.nextElementSibling;
+    }
+    h.style.display = temVisivel ? '' : 'none';
+  });
+}
+
 // ==================== CARDÁPIO ====================
 function trocarDia(dia, el) {
   diaAtivo = dia;
@@ -2472,7 +2512,7 @@ async function criarEAddDia() {
 }
 
 async function carregarProdutos() {
-  const { data } = await db.from('cardapio').select('id,nome,categoria,preco,descricao,dias_semana,ativo').eq('ativo', true).order('categoria,nome');
+  const { data } = await db.from('cardapio').select('id,nome,categoria,preco,descricao,dias_semana').order('categoria,nome');
   todosProdutos = data || [];
   renderProdutos();
   const sel = document.getElementById('sel-prod');
@@ -2518,10 +2558,15 @@ function renderProdutos() {
 
 async function salvarProduto() {
   const nome = document.getElementById('p-nome').value.trim();
-  const cat = document.getElementById('p-cat').value.trim();
+  const catDigitado = document.getElementById('p-cat').value.trim();
   const preco = parseFloat(document.getElementById('p-preco').value);
   const desc = document.getElementById('p-desc').value.trim();
-  if (!nome || !cat || !preco) return toast('Preencha os campos obrigatorios', 'err');
+  if (!nome || !catDigitado || !preco) return toast('Preencha os campos obrigatorios', 'err');
+  // Normalizar categoria: verificar se já existe categoria com mesmo nome (ignorando maiúsculas)
+  const catExistente = todosProdutos.find(p =>
+    p.categoria.toLowerCase() === catDigitado.toLowerCase()
+  );
+  const cat = catExistente ? catExistente.categoria : catDigitado;
   const { error } = await db.from('cardapio').insert([{ nome: nome, categoria: cat, preco: preco, descricao: desc, dias_semana: [], ativo: true }]);
   if (error) return toast('Erro: ' + error.message, 'err');
   document.getElementById('p-nome').value = '';
@@ -2533,9 +2578,10 @@ async function salvarProduto() {
 }
 
 async function delProduto(id) {
-  if (!confirm('Remover este produto?')) return;
-  await db.from('cardapio').update({ ativo: false }).eq('id', id);
-  toast('Produto removido');
+  if (!confirm('Remover este produto do catálogo?')) return;
+  const { error } = await db.from('cardapio').delete().eq('id', id);
+  if (error) { toast('Erro ao remover: ' + error.message, 'err'); return; }
+  toast('✅ Produto removido!');
   carregarProdutos();
   carregarDiaLista();
 }
@@ -2906,10 +2952,16 @@ function renderViagemCardapioDia() {
   for (const cat of cats) {
     html += `<div style="font-size:.68rem;color:var(--txt2);padding:4px 6px 2px;text-transform:uppercase;font-weight:600;">${cat}</div>`;
     itensDia.filter(p => p.categoria === cat).forEach(p => {
-      html += `<div class="item-card" style="margin-bottom:4px;">
-        <div class="item-info"><div class="item-nome">${p.nome}</div><div class="item-cat">${p.categoria}</div></div>
-        <div class="item-preco">${R(p.preco)}</div>
-        <button class="btn-add" onclick="addItemViagem(${p.id},'${p.nome.replace(/'/g,"\'")}',${p.preco})">+</button>
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:7px 8px;border-bottom:1px solid rgba(255,255,255,.04);border-radius:6px;margin-bottom:3px;">
+        <div style="flex:1;">
+          <div style="font-size:.86rem;font-weight:700;">${p.nome}</div>
+          ${p.descricao ? '<div style="font-size:.68rem;color:var(--txt2);">' + p.descricao + '</div>' : ''}
+        </div>
+        <div style="font-size:.85rem;color:var(--verde);font-weight:700;white-space:nowrap;">${R(p.preco)}</div>
+        <button onclick="addItemViagem(${p.id},'${p.nome.replace(/'/g,"\'")}',${p.preco})"
+          style="background:var(--verde-esc);color:#000;border:none;border-radius:6px;padding:6px 12px;font-size:.78rem;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0;">
+          + Adicionar
+        </button>
       </div>`;
     });
   }
@@ -2921,17 +2973,29 @@ function renderViagemProdutos(filtro = '') {
   const container = document.getElementById('viagem-produtos-lista');
   if (!container) return;
   const fl = filtro.toLowerCase();
-  let prods = filtro ? todosProdutos.filter(p => p.nome.toLowerCase().includes(fl) || (p.categoria||'').toLowerCase().includes(fl)) : todosProdutos;
+  const normCatV = s => (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+  let prods = todosProdutos.filter(p => {
+    const cn = normCatV(p.categoria);
+    if (cn === 'pratos' || cn === 'prato' || cn === 'todos os pratos') return false;
+    if (!filtro) return true;
+    return p.nome.toLowerCase().includes(fl) || (p.categoria||'').toLowerCase().includes(fl);
+  });
   if (!prods.length) { container.innerHTML = '<div style="text-align:center;padding:10px;color:var(--txt2);">Nenhum produto</div>'; return; }
   const cats = [...new Set(prods.map(p => p.categoria))];
   let html = '';
   for (const cat of cats) {
     html += `<div class="cat-hdr">${cat.toUpperCase()}</div>`;
     prods.filter(p => p.categoria === cat).forEach(p => {
-      html += `<div class="item-card" style="margin-bottom:4px;">
-        <div class="item-info"><div class="item-nome">${p.nome}</div><div class="item-cat">${p.categoria}</div></div>
-        <div class="item-preco">${R(p.preco)}</div>
-        <button class="btn-add" onclick="addItemViagem(${p.id},'${p.nome.replace(/'/g,"\'")}',${p.preco})">+</button>
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:7px 8px;border-bottom:1px solid rgba(255,255,255,.04);border-radius:6px;margin-bottom:3px;">
+        <div style="flex:1;">
+          <div style="font-size:.86rem;font-weight:700;">${p.nome}</div>
+          ${p.descricao ? '<div style="font-size:.68rem;color:var(--txt2);">' + p.descricao + '</div>' : ''}
+        </div>
+        <div style="font-size:.84rem;color:var(--verde);font-weight:700;white-space:nowrap;">${R(p.preco)}</div>
+        <button onclick="addItemViagem(${p.id},'${p.nome.replace(/'/g,"\'")}',${p.preco})"
+          style="background:var(--verde-esc);color:#000;border:none;border-radius:6px;padding:6px 12px;font-size:.78rem;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0;">
+          + Adicionar
+        </button>
       </div>`;
     });
   }
@@ -3118,6 +3182,18 @@ function deslogarGarcom() {
   localStorage.removeItem('garcom_logado');
   localStorage.removeItem('garcom_login_time');
   toast('✅ Garçom deslogado remotamente!');
+  // Mostrar botão vermelho deslogado imediatamente
+  const btn = document.querySelector('[onclick="deslogarGarcom()"]');
+  if (btn) {
+    btn.textContent = '🔴 Garçom Deslogado!';
+    btn.style.background = 'rgba(255,23,68,.35)';
+    btn.style.borderColor = 'var(--vermelho)';
+    btn.style.color = 'var(--vermelho)';
+    setTimeout(() => {
+      btn.textContent = '🚪 Forçar Deslogar Garçom';
+      btn.style.background = 'rgba(255,23,68,.2)';
+    }, 4000);
+  }
   verificarSessaoGarcom();
 }
 
@@ -3129,14 +3205,26 @@ function verificarSessaoGarcom() {
   if (!div) return;
   if (logado === 'true' && loginTime) {
     const diff = (new Date() - new Date(loginTime)) / (1000*60*60);
-    div.innerHTML = `<span style="color:var(--verde)">🟢 Sessão ativa</span><br>
-      Login há ${diff < 1 ? Math.round(diff*60) + ' minutos' : diff.toFixed(1) + ' horas'}<br>
-      ${senhaCustom ? '🔑 Senha personalizada ativa' : '🔑 Senha padrão em uso'}`;
+    const tempo = diff < 1 ? Math.round(diff*60) + ' minutos' : diff.toFixed(1) + ' horas';
+    div.innerHTML = `
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+        <span style="width:10px;height:10px;border-radius:50%;background:var(--verde);display:inline-block;box-shadow:0 0 6px var(--verde);"></span>
+        <span style="color:var(--verde);font-weight:700;">Sessão ATIVA</span>
+      </div>
+      <div style="font-size:.75rem;color:var(--txt2);">⏱️ Logado há ${tempo}</div>
+      <div style="font-size:.75rem;color:var(--txt2);">${senhaCustom ? '🔑 Senha personalizada ativa' : '🔑 Senha padrão em uso'}</div>`;
   } else {
-    div.innerHTML = `<span style="color:var(--txt3)">⚫ Nenhuma sessão ativa</span><br>
-      ${senhaCustom ? '🔑 Senha personalizada configurada' : '🔑 Senha padrão (#Kwaii2020)'}`;
+    div.innerHTML = `
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+        <span style="width:10px;height:10px;border-radius:50%;background:var(--vermelho);display:inline-block;"></span>
+        <span style="color:var(--vermelho);font-weight:700;">Nenhuma sessão ativa</span>
+      </div>
+      <div style="font-size:.75rem;color:var(--txt2);">${senhaCustom ? '🔑 Senha personalizada configurada' : '🔑 Senha padrão (#Kwaii2020)'}</div>`;
   }
 }
+
+// Auto-atualizar status do garçom a cada 5s quando na aba
+let _garcomPolling = null;
 
 // ==================== AJ4: LIMPAR HISTÓRICO ====================
 async function limparTodoHistorico() {
@@ -3144,8 +3232,12 @@ async function limparTodoHistorico() {
   if (!confirm('Confirme novamente: apagar TODO o histórico?')) return;
   const { error } = await db.from('pedidos').delete().eq('status', 'CONCLUIDO');
   if (error) return toast('Erro: ' + error.message, 'err');
+  // AJ4: Limpar TUDO imediatamente sem esperar reload
+  const divLista = document.getElementById('hist-lista');
+  const divResumo = document.getElementById('hist-resumo');
+  if (divLista) divLista.innerHTML = '<div class="empty-st"><span class="e-icon">📜</span>Nenhum historico</div>';
+  if (divResumo) divResumo.innerHTML = '';
   toast('🗑️ Histórico limpo!');
-  carregarHistorico();
 }
 
 // Auto-excluir histórico a cada 15 dias
