@@ -837,10 +837,12 @@ async function carregarCardapio() {
 }
 
 function itemHTML(item) {
+  // Mostrar descrição abaixo do nome (não categoria)
+  const subInfo = item.descricao || '';
   return `<div class="item-card">
     <div class="item-info">
       <div class="item-nome">${item.nome}</div>
-      <div class="item-cat">${item.categoria}${item.descricao ? ' · ' + item.descricao : ''}</div>
+      ${subInfo ? `<div class="item-cat">${subInfo}</div>` : ''}
     </div>
     <div class="item-preco">${R(item.preco)}</div>
     <button class="btn-add" onclick="addItem(${item.id})">+</button>
@@ -962,10 +964,13 @@ function mostrarTodosProdutosLista(filtro = '') {
   }
   
   const cats = [...new Set(produtosFiltrados.map(i => i.categoria))];
+  const normCat = s => (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
   for (let c = 0; c < cats.length; c++) {
     const cat = cats[c];
+    // Nunca mostrar categoria Pratos em TODOS OS PRODUTOS
+    const cn = normCat(cat);
+    if (cn === 'pratos' || cn === 'prato' || cn === 'todos os pratos') continue;
     html += `<div class="cat-hdr">${cat.toUpperCase()}</div>`;
-    
     for (let i = 0; i < produtosFiltrados.length; i++) {
       const item = produtosFiltrados[i];
       if (item.categoria === cat) {
