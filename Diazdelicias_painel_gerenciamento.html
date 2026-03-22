@@ -319,6 +319,7 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;min-
   <div class="nav-tab" onclick="trocarPg('pg-estoque',this)">&#x1F4E6; Estoque</div>
   <div class="nav-tab" onclick="trocarPg('pg-garcom',this)">👨‍🍳 Garçom</div>
   <div class="nav-tab" onclick="trocarPg('pg-contas',this)">💰 Contas a Pagar</div>
+  <div class="nav-tab" onclick="trocarPg('pg-fiado',this)">🤝 Clientes Fiados</div>
 </div>
 
 <div id="pg-principal" class="pg ativa">
@@ -588,7 +589,9 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;min-
         <div class="pag-btn" onclick="selecionarPagamento('PIX',this)">🔵 PIX</div>
         <div class="pag-btn" onclick="selecionarPagamento('Cartão Crédito',this)">💳 Crédito</div>
         <div class="pag-btn" onclick="selecionarPagamento('Cartão Débito',this)">💳 Débito</div>
+        <div class="pag-btn" onclick="selecionarPagamento('Fiado',this)" id="btn-pag-fiado" style="grid-column:span 2;border-color:var(--ouro);color:var(--ouro);display:none;">🤝 Lançar no Fiado</div>
       </div>
+      <div id="fiado-fechamento-area" style="display:none;margin-bottom:8px;"></div>
       <div class="pag-troco" id="pag-troco">
         <div style="font-size:.75rem;color:var(--txt2);margin-bottom:6px;font-weight:600;">Valor pago pelo cliente:</div>
         <input type="number" id="inp-dinheiro" placeholder="R$ 0,00" step="0.01" oninput="calcularTroco()">
@@ -864,6 +867,133 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;min-
     <div class="modal-actions">
       <button class="btn-sec" onclick="fecharModal('modal-conta')">Cancelar</button>
       <button class="btn-prim" onclick="salvarConta()">💾 Salvar Conta</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ==================== CLIENTES FIADOS ==================== -->
+<div id="pg-fiado" class="pg">
+
+  <!-- TELA PIN -->
+  <div id="fiado-pin-tela" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;gap:16px;">
+    <div style="font-size:2.5rem;">🔐</div>
+    <div style="font-size:1rem;font-weight:700;color:var(--ouro);">Acesso Restrito — Clientes Fiados</div>
+    <div style="font-size:.8rem;color:var(--txt2);">Digite o PIN para acessar</div>
+    <div style="display:flex;gap:8px;">
+      <input type="password" id="fiado-pin-input" maxlength="6" class="form-input" style="width:160px;text-align:center;font-size:1.2rem;letter-spacing:6px;" placeholder="••••••" onkeydown="if(event.key==='Enter')verificarPinFiado()">
+      <button class="btn-prim" style="width:auto;padding:9px 16px;" onclick="verificarPinFiado()">Entrar</button>
+    </div>
+    <div id="fiado-pin-erro" style="color:var(--vermelho);font-size:.78rem;display:none;">PIN incorreto</div>
+  </div>
+
+  <!-- CONTEÚDO (oculto até PIN) -->
+  <div id="fiado-conteudo" style="display:none;">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+      <div class="sec-titulo neon-ouro">🤝 Clientes Fiados</div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-prim" style="width:auto;padding:8px 14px;" onclick="abrirModalNovoFiado()">+ Novo Cliente</button>
+        <button class="btn-sec" style="flex:none;padding:8px 12px;" onclick="exportarFiado()">📊 Exportar</button>
+      </div>
+    </div>
+
+    <!-- RESUMO CARDS -->
+    <div id="fiado-resumo" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px;"></div>
+
+    <!-- BUSCA + FILTRO STATUS -->
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+      <input type="text" id="fiado-busca" class="form-input" placeholder="🔍 Buscar por nome ou CPF..." oninput="filtrarFiado()" style="flex:1;min-width:200px;">
+      <select id="fiado-filtro-status" class="form-input" style="width:auto;" onchange="filtrarFiado()">
+        <option value="">Todos</option>
+        <option value="pendente">⏳ Pendente</option>
+        <option value="ativo">✅ Ativo</option>
+        <option value="inadimplente">🔴 Inadimplente</option>
+        <option value="bloqueado">🔒 Bloqueado</option>
+      </select>
+    </div>
+
+    <!-- LISTA CLIENTES -->
+    <div id="fiado-lista"></div>
+  </div>
+</div>
+
+<!-- MODAL NOVO/EDITAR CLIENTE FIADO -->
+<div class="modal-ov" id="modal-fiado-cliente">
+  <div class="modal-box" style="max-width:540px;">
+    <div class="modal-titulo">🤝 Cliente Fiado</div>
+    <input type="hidden" id="fc-id">
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Nome Completo *</label><input type="text" id="fc-nome" class="form-input" placeholder="Nome completo"></div>
+      <div class="form-group"><label class="form-label">CPF *</label><input type="text" id="fc-cpf" class="form-input" placeholder="000.000.000-00" maxlength="14" oninput="mascaraCPFFiado(this)"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">WhatsApp *</label><input type="text" id="fc-whats" class="form-input" placeholder="(11) 99999-9999" maxlength="15" oninput="mascaraTelFiado(this)"></div>
+      <div class="form-group"><label class="form-label">Limite Máximo R$ *</label><input type="number" id="fc-limite" class="form-input" step="0.01" placeholder="100,00"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Periodicidade</label>
+        <select id="fc-per" class="form-input">
+          <option value="mensal">Mensal</option>
+          <option value="quinzenal">Quinzenal</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Dia Vencimento</label>
+        <select id="fc-venc" class="form-input"></select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Forma Pagamento</label>
+        <select id="fc-fp" class="form-input">
+          <option value="PIX">PIX</option>
+          <option value="Boleto">Boleto</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select id="fc-status" class="form-input">
+          <option value="pendente">⏳ Pendente</option>
+          <option value="ativo">✅ Ativo</option>
+          <option value="inadimplente">🔴 Inadimplente</option>
+          <option value="bloqueado">🔒 Bloqueado</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Observação</label><input type="text" id="fc-obs" class="form-input" placeholder="Observações..."></div>
+    <div class="modal-actions">
+      <button class="btn-sec" onclick="fecharModal('modal-fiado-cliente')">Cancelar</button>
+      <button class="btn-prim" onclick="salvarClienteFiado()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETALHE CLIENTE -->
+<div class="modal-ov" id="modal-fiado-detalhe">
+  <div class="modal-box" style="max-width:600px;max-height:90vh;display:flex;flex-direction:column;">
+    <div id="fiado-det-header" style="flex-shrink:0;"></div>
+    <div style="flex:1;overflow-y:auto;min-height:0;">
+      <div id="fiado-det-saldo" style="margin-bottom:12px;"></div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;" id="fiado-det-btns"></div>
+      <div id="fiado-det-trans"></div>
+    </div>
+    <div class="modal-actions" style="flex-shrink:0;padding-top:10px;">
+      <button class="btn-sec" onclick="fecharModal('modal-fiado-detalhe')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL REGISTRAR PAGAMENTO -->
+<div class="modal-ov" id="modal-fiado-pgto">
+  <div class="modal-box" style="max-width:380px;">
+    <div class="modal-titulo">💰 Registrar Pagamento</div>
+    <input type="hidden" id="pgto-cliente-id">
+    <div class="form-group"><label class="form-label">Valor Recebido R$ *</label><input type="number" id="pgto-valor" class="form-input" step="0.01" placeholder="0,00"></div>
+    <div class="form-group"><label class="form-label">Observação</label><input type="text" id="pgto-obs" class="form-input" placeholder="Ex: PIX recebido dia 22"></div>
+    <div class="modal-actions">
+      <button class="btn-sec" onclick="fecharModal('modal-fiado-pgto')">Cancelar</button>
+      <button class="btn-prim btn-ouro-s" onclick="confirmarPagamentoFiado()">✅ Confirmar Pagamento</button>
     </div>
   </div>
 </div>
@@ -1148,6 +1278,13 @@ function trocarPg(id, el) {
   if (id === 'pg-contas') {
     initContasAno();
     renderContas();
+  }
+  if (id === 'pg-fiado') {
+    // Verificar PIN antes de mostrar conteúdo
+    document.getElementById('fiado-pin-tela').style.display = 'flex';
+    document.getElementById('fiado-conteudo').style.display = 'none';
+    document.getElementById('fiado-pin-input').value = '';
+    document.getElementById('fiado-pin-erro').style.display = 'none';
   }
   if (id === 'pg-garcom') {
     verificarSessaoGarcom();
@@ -1456,6 +1593,7 @@ function gerarComandaHTML(p, titulo) {
   ${p.client_name ? '<div>Cliente: ' + p.client_name + '</div>' : ''}
   ${p.observacao ? '<div>Obs: ' + p.observacao + '</div>' : ''}
   ${p.forma_pagamento ? '<div>Pagamento: ' + p.forma_pagamento + '</div>' : ''}
+  ${p.forma_pagamento === 'Fiado' && p.client_name ? '<div style="color:#c8a000;font-weight:bold;margin-top:2px;">🤝 Lançado no Fiado — ' + p.client_name + '</div>' : ''}
   <hr>
   <table>
     <tr><th style="text-align:left">Item</th><th style="text-align:right">Valor</th></tr>
@@ -1681,6 +1819,30 @@ function abrirModalFechamento(pedidoId, mesaId) {
   totalFechamento = pedido.total_value || 0;
   const cli = pedido.client_name || '';
   const isViagem = !pedido.mesa_id;
+  // Verificar se cliente tem fiado ativo
+  setTimeout(async () => {
+    const clienteFiado = cli ? await buscarClienteFiadoPorNome(cli) : null;
+    const btnFiado = document.getElementById('btn-pag-fiado');
+    const fiadoArea = document.getElementById('fiado-fechamento-area');
+    window._clienteFiadoFechamento = null;
+    if (clienteFiado && clienteFiado.status === 'ativo') {
+      window._clienteFiadoFechamento = clienteFiado;
+      const disp = Math.max(0, (clienteFiado.limite_max||0) - (clienteFiado.saldo_usado||0));
+      const podeFiado = disp >= totalFechamento;
+      if (btnFiado) { btnFiado.style.display = 'block'; btnFiado.style.opacity = podeFiado?'1':'.4'; btnFiado.style.pointerEvents = podeFiado?'auto':'none'; }
+      if (fiadoArea) {
+        fiadoArea.style.display = 'block';
+        fiadoArea.innerHTML = '<div style="background:rgba(255,183,3,.1);border:1px solid var(--ouro);border-radius:8px;padding:7px 10px;font-size:.78rem;">' +
+          '<span style="color:var(--ouro);font-weight:700;">🤝 ' + clienteFiado.nome + ' — Fiado</span><br>' +
+          '<span style="color:var(--txt2);">Disponível: <b style="color:' + (podeFiado?'var(--verde)':'var(--vermelho)') + ';">' + R(disp) + '</b> de ' + R(clienteFiado.limite_max) + '</span>' +
+          (!podeFiado?'<br><span style="color:var(--vermelho);font-size:.7rem;">⚠️ Saldo insuficiente</span>':'') +
+          '</div>';
+      }
+    } else {
+      if (btnFiado) btnFiado.style.display = 'none';
+      if (fiadoArea) fiadoArea.style.display = 'none';
+    }
+  }, 100);
   const jaPago = isViagem && pedido.forma_pagamento && pedido.forma_pagamento !== 'Pagar depois';
 
   // Info do pedido: mostrar Viagem + cliente ou Mesa número
@@ -1762,7 +1924,18 @@ async function confirmarFechamento() {
     }
   }
   
-  const { error } = await db.from('pedidos').update({
+  // Processar pagamento fiado
+  if (formaPagamentoSel === 'Fiado' && window._clienteFiadoFechamento) {
+    const cf = window._clienteFiadoFechamento;
+    const res = await registrarConsumoFiado(cf.id, totalFechamento, 
+      'Consumo ' + (pedidoAtual?.nome_comanda || 'comanda'), pedidoAtual?.id);
+    if (res && res.erro === 'limite') {
+      toast('Saldo fiado insuficiente: ' + R(res.disponivel) + ' disponível', 'err');
+      return;
+    }
+  }
+
+    const { error } = await db.from('pedidos').update({
     status: 'CONCLUIDO',
     forma_pagamento: formaPagamentoSel
   }).eq('id', pedidoFechamentoId);
@@ -3299,6 +3472,22 @@ async function enviarPedidoViagem() {
 .st-vencido { background:rgba(255,71,87,.15); color:var(--vermelho); border:1px solid var(--vermelho); }
 .st-cancelado { background:rgba(255,255,255,.08); color:var(--txt3); border:1px solid var(--txt3); }
 .neon-ouro { color:var(--ouro); text-shadow:0 0 12px rgba(255,183,3,.3); }
+
+/* ===== FIADO ===== */
+.fc-card{background:var(--card);border:1px solid var(--borda);border-radius:12px;padding:14px;margin-bottom:10px;cursor:pointer;transition:border-color .2s;}
+.fc-card:hover{border-color:var(--ouro);}
+.fc-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.68rem;font-weight:700;}
+.fc-ativo{background:rgba(0,230,118,.15);color:#00e676;border:1px solid #00e676;}
+.fc-pendente{background:rgba(255,183,3,.15);color:#ffb703;border:1px solid #ffb703;}
+.fc-inadimplente{background:rgba(255,71,87,.2);color:#ff4757;border:1px solid #ff4757;}
+.fc-bloqueado{background:rgba(255,255,255,.08);color:#6b4d63;border:1px solid #6b4d63;}
+.saldo-bar-f{background:var(--borda);border-radius:3px;height:6px;overflow:hidden;margin:5px 0;}
+.saldo-fill-f{height:100%;border-radius:3px;transition:width .5s;}
+.trans-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:.82rem;}
+.trans-row:last-child{border:none;}
+.resumo-fiado-card{background:var(--card);border:1px solid var(--borda);border-radius:10px;padding:12px;text-align:center;}
+.resumo-fiado-card .rv{font-size:1.1rem;font-weight:900;}
+.resumo-fiado-card .rl{font-size:.65rem;color:var(--txt2);margin-top:2px;}
 </style></head><body>
     <div class="c b" style="font-size:15px;">DIAZ DELICIAS</div>
     <div class="c b" style="font-size:11px;color:#c00;">🛵 PEDIDO VIAGEM</div>
@@ -3606,6 +3795,315 @@ function deletarConta(id) {
   saveContas(todas);
   renderContas();
   toast('🗑️ Conta removida');
+}
+
+
+// ==================== CLIENTES FIADOS ====================
+const FIADO_PIN = '633733';
+let fiadoClientes = [];
+let fiadoDetalheId = null;
+
+// Máscaras
+function mascaraCPFFiado(el){let v=el.value.replace(/\D/g,'').slice(0,11);v=v.replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d{1,2})$/,'$1-$2');el.value=v;}
+function mascaraTelFiado(el){let v=el.value.replace(/\D/g,'').slice(0,11);v=v.replace(/(\d{2})(\d)/,'($1) $2').replace(/(\d{5})(\d)/,'$1-$2');el.value=v;}
+
+function verificarPinFiado() {
+  const pin = document.getElementById('fiado-pin-input').value.trim();
+  if (pin === FIADO_PIN) {
+    document.getElementById('fiado-pin-tela').style.display = 'none';
+    document.getElementById('fiado-conteudo').style.display = 'block';
+    // Preencher select dias
+    const s = document.getElementById('fc-venc');
+    if (s && !s.children.length) {
+      for(let d=1;d<=28;d++){const o=document.createElement('option');o.value=d;o.textContent='Dia '+d;s.appendChild(o);}
+    }
+    carregarClientesFiado();
+  } else {
+    document.getElementById('fiado-pin-erro').style.display = 'block';
+    document.getElementById('fiado-pin-input').value = '';
+    setTimeout(() => document.getElementById('fiado-pin-erro').style.display = 'none', 2000);
+  }
+}
+
+async function carregarClientesFiado() {
+  const { data } = await db.from('clientes_fiado').select('*').order('nome');
+  fiadoClientes = data || [];
+  renderResumoFiado();
+  filtrarFiado();
+}
+
+function renderResumoFiado() {
+  const total = fiadoClientes.length;
+  const ativos = fiadoClientes.filter(c => c.status === 'ativo').length;
+  const pendentes = fiadoClientes.filter(c => c.status === 'pendente').length;
+  const inadimplentes = fiadoClientes.filter(c => c.status === 'inadimplente').length;
+  const totalEmAberto = fiadoClientes.reduce((s,c) => s + parseFloat(c.saldo_usado||0), 0);
+  const el = document.getElementById('fiado-resumo');
+  el.innerHTML = [
+    {rv: total, rl: 'Total Clientes', cor: 'var(--txt)'},
+    {rv: ativos, rl: 'Ativos', cor: 'var(--verde)'},
+    {rv: pendentes, rl: 'Pendentes', cor: 'var(--ouro)'},
+    {rv: inadimplentes, rl: 'Inadimplentes', cor: 'var(--vermelho)'},
+    {rv: R(totalEmAberto), rl: 'Total em Aberto', cor: 'var(--rosa)'},
+  ].map(x => `<div class="resumo-fiado-card"><div class="rv" style="color:${x.cor};">${x.rv}</div><div class="rl">${x.rl}</div></div>`).join('');
+}
+
+function filtrarFiado() {
+  const busca = (document.getElementById('fiado-busca')?.value || '').toLowerCase();
+  const filtroSt = document.getElementById('fiado-filtro-status')?.value || '';
+  const lista = fiadoClientes.filter(c => {
+    const matchB = !busca || c.nome.toLowerCase().includes(busca) || c.cpf.includes(busca);
+    const matchS = !filtroSt || c.status === filtroSt;
+    return matchB && matchS;
+  });
+  renderListaFiado(lista);
+}
+
+function renderListaFiado(lista) {
+  const el = document.getElementById('fiado-lista');
+  if (!lista.length) { el.innerHTML = '<div class="empty-st"><span class="e-icon">🤝</span>Nenhum cliente encontrado</div>'; return; }
+  const stMap = {ativo:'fc-ativo',pendente:'fc-pendente',inadimplente:'fc-inadimplente',bloqueado:'fc-bloqueado'};
+  const stLabel = {ativo:'✅ Ativo',pendente:'⏳ Pendente',inadimplente:'🔴 Inadimplente',bloqueado:'🔒 Bloqueado'};
+  el.innerHTML = lista.map(c => {
+    const usado = parseFloat(c.saldo_usado||0), lim = parseFloat(c.limite_max||100);
+    const pct = Math.min(100,(usado/lim)*100);
+    const cor = pct>80?'var(--vermelho)':pct>50?'var(--ouro)':'var(--verde)';
+    const disp = Math.max(0, lim - usado);
+    return `<div class="fc-card" onclick="abrirDetalheFiado(${c.id})">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+        <div>
+          <div style="font-weight:700;font-size:.9rem;">${c.nome}</div>
+          <div style="font-size:.72rem;color:var(--txt2);">CPF: ${c.cpf} • ${c.whatsapp}</div>
+        </div>
+        <span class="fc-badge ${stMap[c.status]||'fc-pendente'}">${stLabel[c.status]||c.status}</span>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:2px;">
+          <span style="color:var(--txt2);">Usado: ${R(usado)} / Limite: ${R(lim)}</span>
+          <span style="color:${cor};font-weight:700;">Disp: ${R(disp)}</span>
+        </div>
+        <div class="saldo-bar-f"><div class="saldo-fill-f" style="width:${pct}%;background:${cor};"></div></div>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:8px;font-size:.72rem;flex-wrap:wrap;">
+        <span style="background:var(--card2);border-radius:5px;padding:2px 8px;">📅 ${c.periodicidade==='mensal'?'Mensal':'Quinzenal'} · Dia ${c.dia_vencimento}</span>
+        <span style="background:var(--card2);border-radius:5px;padding:2px 8px;">${c.forma_pagamento==='PIX'?'🔵':'📄'} ${c.forma_pagamento}</span>
+        ${c.limite_max ? `<span style="background:var(--card2);border-radius:5px;padding:2px 8px;">🎯 Limite: ${R(c.limite_max)}</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function abrirDetalheFiado(id) {
+  fiadoDetalheId = id;
+  const c = fiadoClientes.find(x => x.id === id);
+  if (!c) return;
+  const usado = parseFloat(c.saldo_usado||0), lim = parseFloat(c.limite_max||100), disp = Math.max(0,lim-usado);
+  const pct = Math.min(100,(usado/lim)*100), cor = pct>80?'var(--vermelho)':pct>50?'var(--ouro)':'var(--verde)';
+  const stMap = {ativo:'fc-ativo',pendente:'fc-pendente',inadimplente:'fc-inadimplente',bloqueado:'fc-bloqueado'};
+  const stLabel = {ativo:'✅ Ativo',pendente:'⏳ Pendente',inadimplente:'🔴 Inadimplente',bloqueado:'🔒 Bloqueado'};
+
+  document.getElementById('fiado-det-header').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+      <div>
+        <div style="font-size:1rem;font-weight:800;">${c.nome}</div>
+        <div style="font-size:.75rem;color:var(--txt2);">CPF: ${c.cpf} • WhatsApp: ${c.whatsapp}</div>
+        <div style="font-size:.75rem;color:var(--txt2);">📅 ${c.periodicidade==='mensal'?'Mensal':'Quinzenal'} · Dia ${c.dia_vencimento} · ${c.forma_pagamento}</div>
+      </div>
+      <span class="fc-badge ${stMap[c.status]||'fc-pendente'}">${stLabel[c.status]||c.status}</span>
+    </div>`;
+
+  document.getElementById('fiado-det-saldo').innerHTML = `
+    <div style="background:var(--card2);border-radius:10px;padding:12px;">
+      <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:4px;">
+        <span style="color:var(--txt2);">Saldo usado</span><span style="font-weight:800;">${R(usado)} / ${R(lim)}</span>
+      </div>
+      <div class="saldo-bar-f" style="height:10px;"><div class="saldo-fill-f" style="width:${pct}%;background:${cor};"></div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:.78rem;">
+        <span style="color:${cor};font-weight:700;">Disponível: ${R(disp)}</span>
+        <span style="color:var(--txt2);">${pct.toFixed(0)}% usado</span>
+      </div>
+    </div>`;
+
+  document.getElementById('fiado-det-btns').innerHTML = `
+    <button onclick="abrirPagamentoFiado(${c.id})" style="background:var(--verde-esc);color:#000;border:none;border-radius:8px;padding:8px 14px;font-size:.8rem;font-weight:700;cursor:pointer;">💰 Registrar Pagamento</button>
+    <button onclick="editarClienteFiado(${c.id})" style="background:var(--azul2);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:.8rem;font-weight:700;cursor:pointer;">✏️ Editar</button>
+    <button onclick="alterarStatusFiado(${c.id})" style="background:var(--card2);color:var(--ouro);border:1px solid var(--ouro);border-radius:8px;padding:8px 14px;font-size:.8rem;font-weight:700;cursor:pointer;">🔄 Status</button>`;
+
+  // Buscar transações
+  const { data: trans } = await db.from('fiado_transacoes')
+    .select('*').eq('cliente_id', c.id)
+    .order('data_transacao', { ascending: false }).limit(30);
+
+  const tHTML = (trans && trans.length) ? trans.map(t => {
+    const cor2 = t.tipo==='pagamento'?'var(--verde)':'var(--vermelho)', sinal = t.tipo==='pagamento'?'+':'-';
+    const dt = new Date(t.data_transacao).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
+    return `<div class="trans-row">
+      <div><div style="font-weight:600;">${t.descricao||(t.tipo==='pagamento'?'Pagamento':'Consumo')}</div>
+      <div style="font-size:.7rem;color:var(--txt2);">${dt}${t.mesa?' · Mesa '+t.mesa:''}</div></div>
+      <div style="font-weight:800;color:${cor2};white-space:nowrap;">${sinal}${R(t.valor)}</div>
+    </div>`;
+  }).join('') : '<div style="color:var(--txt3);text-align:center;padding:14px;font-size:.82rem;">Nenhuma movimentação</div>';
+
+  document.getElementById('fiado-det-trans').innerHTML = `
+    <div style="font-size:.75rem;font-weight:700;color:var(--txt2);text-transform:uppercase;margin-bottom:8px;">📋 Movimentações</div>${tHTML}`;
+
+  document.getElementById('modal-fiado-detalhe').classList.add('show');
+}
+
+function abrirModalNovoFiado() {
+  document.getElementById('fc-id').value = '';
+  document.getElementById('fc-nome').value = '';
+  document.getElementById('fc-cpf').value = '';
+  document.getElementById('fc-whats').value = '';
+  document.getElementById('fc-limite').value = '100';
+  document.getElementById('fc-per').value = 'mensal';
+  document.getElementById('fc-venc').value = '10';
+  document.getElementById('fc-fp').value = 'PIX';
+  document.getElementById('fc-status').value = 'pendente';
+  document.getElementById('fc-obs').value = '';
+  document.getElementById('modal-fiado-cliente').classList.add('show');
+}
+
+function editarClienteFiado(id) {
+  const c = fiadoClientes.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('fc-id').value = c.id;
+  document.getElementById('fc-nome').value = c.nome;
+  document.getElementById('fc-cpf').value = c.cpf;
+  document.getElementById('fc-whats').value = c.whatsapp;
+  document.getElementById('fc-limite').value = c.limite_max;
+  document.getElementById('fc-per').value = c.periodicidade;
+  document.getElementById('fc-venc').value = c.dia_vencimento;
+  document.getElementById('fc-fp').value = c.forma_pagamento;
+  document.getElementById('fc-status').value = c.status;
+  document.getElementById('fc-obs').value = c.observacao || '';
+  fecharModal('modal-fiado-detalhe');
+  document.getElementById('modal-fiado-cliente').classList.add('show');
+}
+
+async function salvarClienteFiado() {
+  const id = document.getElementById('fc-id').value;
+  const nome = document.getElementById('fc-nome').value.trim();
+  const cpf = document.getElementById('fc-cpf').value.trim();
+  const whats = document.getElementById('fc-whats').value.trim();
+  const limite = parseFloat(document.getElementById('fc-limite').value);
+  if (!nome || !cpf || !whats || !limite) { toast('Preencha todos os campos obrigatórios', 'err'); return; }
+
+  const dados = {
+    nome, cpf, whatsapp: whats, limite_max: limite,
+    periodicidade: document.getElementById('fc-per').value,
+    dia_vencimento: parseInt(document.getElementById('fc-venc').value),
+    forma_pagamento: document.getElementById('fc-fp').value,
+    status: document.getElementById('fc-status').value,
+    observacao: document.getElementById('fc-obs').value.trim(),
+    updated_at: new Date().toISOString()
+  };
+
+  let error;
+  if (id) {
+    ({ error } = await db.from('clientes_fiado').update(dados).eq('id', parseInt(id)));
+  } else {
+    dados.saldo_usado = 0;
+    ({ error } = await db.from('clientes_fiado').insert([dados]));
+  }
+  if (error) { toast('Erro: ' + error.message, 'err'); return; }
+  fecharModal('modal-fiado-cliente');
+  carregarClientesFiado();
+  toast(id ? '✅ Cliente atualizado!' : '✅ Cliente cadastrado!');
+}
+
+function abrirPagamentoFiado(id) {
+  document.getElementById('pgto-cliente-id').value = id;
+  document.getElementById('pgto-valor').value = '';
+  document.getElementById('pgto-obs').value = '';
+  fecharModal('modal-fiado-detalhe');
+  document.getElementById('modal-fiado-pgto').classList.add('show');
+}
+
+async function confirmarPagamentoFiado() {
+  const id = parseInt(document.getElementById('pgto-cliente-id').value);
+  const valor = parseFloat(document.getElementById('pgto-valor').value);
+  const obs = document.getElementById('pgto-obs').value.trim();
+  if (!valor || valor <= 0) { toast('Digite o valor recebido', 'err'); return; }
+
+  const c = fiadoClientes.find(x => x.id === id);
+  if (!c) return;
+  const novoSaldo = Math.max(0, parseFloat(c.saldo_usado||0) - valor);
+
+  // Registrar transação
+  const { error: e1 } = await db.from('fiado_transacoes').insert([{
+    cliente_id: id, tipo: 'pagamento', valor, descricao: obs || 'Pagamento recebido',
+    data_transacao: new Date().toISOString()
+  }]);
+  if (e1) { toast('Erro ao registrar transação', 'err'); return; }
+
+  // Atualizar saldo e status
+  const novoStatus = novoSaldo === 0 ? 'ativo' : (c.status === 'inadimplente' ? 'ativo' : c.status);
+  const { error: e2 } = await db.from('clientes_fiado').update({
+    saldo_usado: novoSaldo, status: novoStatus, updated_at: new Date().toISOString()
+  }).eq('id', id);
+  if (e2) { toast('Erro ao atualizar saldo', 'err'); return; }
+
+  fecharModal('modal-fiado-pgto');
+  carregarClientesFiado();
+  toast('✅ Pagamento de ' + R(valor) + ' registrado!');
+}
+
+async function alterarStatusFiado(id) {
+  const c = fiadoClientes.find(x => x.id === id);
+  if (!c) return;
+  const opcoes = ['ativo','pendente','inadimplente','bloqueado'];
+  const labels = ['✅ Ativo','⏳ Pendente','🔴 Inadimplente','🔒 Bloqueado'];
+  const idx = opcoes.indexOf(c.status);
+  const novoIdx = (idx + 1) % opcoes.length;
+  const novoStatus = opcoes[novoIdx];
+  if (!confirm('Alterar status para ' + labels[novoIdx] + '?')) return;
+  await db.from('clientes_fiado').update({ status: novoStatus }).eq('id', id);
+  carregarClientesFiado();
+  fecharModal('modal-fiado-detalhe');
+  toast('Status alterado para ' + labels[novoIdx]);
+}
+
+function exportarFiado() {
+  if (!fiadoClientes.length) { toast('Nenhum cliente para exportar', 'err'); return; }
+  const cols = ['Nome','CPF','WhatsApp','Periodicidade','Vencimento','Forma PG','Limite','Usado','Disponível','Status'];
+  const rows = fiadoClientes.map(c => {
+    const usado = parseFloat(c.saldo_usado||0), lim = parseFloat(c.limite_max||100);
+    return [c.nome, c.cpf, c.whatsapp, c.periodicidade, 'Dia '+c.dia_vencimento, c.forma_pagamento,
+      lim.toFixed(2), usado.toFixed(2), Math.max(0,lim-usado).toFixed(2), c.status].join(';');
+  });
+  const csv = [cols.join(';'), ...rows].join('\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'clientes_fiado_' + new Date().toLocaleDateString('pt-BR').replace(/\//g,'-') + '.csv';
+  a.click();
+  toast('📊 Exportado com sucesso!');
+}
+
+// Registrar consumo fiado a partir de pedido fechado
+async function registrarConsumoFiado(clienteId, valor, descricao, pedidoId, mesa) {
+  const c = fiadoClientes.find(x => x.id === clienteId) ||
+    (await db.from('clientes_fiado').select('*').eq('id', clienteId).single()).data;
+  if (!c) return false;
+
+  const novoSaldo = parseFloat(c.saldo_usado||0) + valor;
+  if (novoSaldo > parseFloat(c.limite_max||100)) { toast('⚠️ Limite do fiado atingido!', 'err'); return false; }
+
+  await db.from('fiado_transacoes').insert([{
+    cliente_id: clienteId, tipo: 'consumo', valor,
+    descricao: descricao || 'Consumo no restaurante',
+    pedido_id: pedidoId, mesa: String(mesa),
+    data_transacao: new Date().toISOString()
+  }]);
+
+  const novoStatus = novoSaldo >= parseFloat(c.limite_max||100) * 0.9 ? 'inadimplente' : 'ativo';
+  await db.from('clientes_fiado').update({
+    saldo_usado: novoSaldo,
+    status: novoSaldo >= parseFloat(c.limite_max||100) ? 'inadimplente' : c.status,
+    updated_at: new Date().toISOString()
+  }).eq('id', clienteId);
+  return true;
 }
 
 // ==================== REALTIME ====================
