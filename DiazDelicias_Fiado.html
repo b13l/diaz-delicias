@@ -391,14 +391,18 @@ window.addEventListener('beforeinstallprompt', (e) => {
   if (btn) btn.classList.remove('hidden');
 });
 
-// Celular: mostrar botão sempre (para instruções iOS)
+// Mostrar botão apenas em mobile (não em desktop)
 document.addEventListener('DOMContentLoaded', () => {
   const jaInstalado = window.matchMedia('(display-mode: standalone)').matches
     || window.navigator.standalone === true;
-  if (!jaInstalado) {
+  if (jaInstalado) return; // já instalado, não mostrar
+  
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (isMobile) {
     const btn = document.getElementById('pwa-install-btn');
     if (btn) btn.classList.remove('hidden');
   }
+  // No desktop o Chrome mostra o ícone de instalar na barra de endereço automaticamente
 });
 
 async function instalarPWA() {
