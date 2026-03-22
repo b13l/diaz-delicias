@@ -938,7 +938,8 @@ async function verificarNovasImpressoes() {
                 tocarAlertaSonoro();
                 const itensArr = Array.isArray(novaImpressao.itens) ? novaImpressao.itens : [];
                 const itensStr = itensArr.map(i => (i.qty||1) + 'x ' + (i.name||i.nome||'')).join(', ');
-                const mesaLabel = (novaImpressao.mesa === 0 || novaImpressao.mesa === '0' || !novaImpressao.mesa) ? '🛵 Viagem' : ('Mesa ' + novaImpressao.mesa);
+                const ehViagem = (novaImpressao.mesa === 0 || novaImpressao.mesa === '0' || !novaImpressao.mesa);
+                const mesaLabel = ehViagem ? 'Viagem' : String(novaImpressao.mesa);
                 const comandaLabel = novaImpressao.comanda_nome || 'Comanda';
 
                 // Notificação Electron (app Windows)
@@ -948,7 +949,8 @@ async function verificarNovasImpressoes() {
                     comanda: comandaLabel,
                     cliente: novaImpressao.cliente || '',
                     itens: itensArr.map(i => (i.qty||1) + 'x ' + (i.name||i.nome||'')),
-                    tipo: 'novo'
+                    tipo: 'novo',
+                    isViagem: ehViagem
                   });
                 }
                 // Notificação Web removida - usar apenas Electron
@@ -1331,8 +1333,9 @@ function gerarComandaHTML(p, titulo) {
   </head><body>
   <div class="centro negrito" style="font-size:16px;">DIAZ DELICIAS</div>
   <div class="centro" style="font-size:10px;">Data: ${dataHora}</div>
+  ${isViagem ? '<div class="centro negrito" style="font-size:11px;border:1px solid #000;padding:2px;margin:3px 0;">🛵 PEDIDO PARA VIAGEM</div>' : ''}
   <hr class="solid">
-  <div><b>${isViagem ? '🛵 ' + (p.nome_comanda || 'Viagem') : 'Mesa: ' + mesaNum}</b></div>
+  <div><b>${isViagem ? (p.client_name || p.nome_comanda || 'Viagem') : 'Mesa: ' + mesaNum}</b></div>
   ${p.nome_comanda && !isViagem ? '<div>Comanda: ' + p.nome_comanda + '</div>' : ''}
   ${p.client_name ? '<div>Cliente: ' + p.client_name + '</div>' : ''}
   ${p.observacao ? '<div>Obs: ' + p.observacao + '</div>' : ''}
@@ -1467,12 +1470,13 @@ function pedCardHTML(p) {
   // Mostrar: Mesa X | Comanda Y | Nome do cliente
   const labelMesa = p.mesa_numero
     ? 'Mesa ' + p.mesa_numero
-    : (p.nome_comanda || '🛵 Viagem');
-  // Linha extra: comanda + cliente
+    : '🛵 Viagem';
+  // Linha extra: comanda + cliente (para mesa) | badge viagem + cliente (para viagem)
   const subLabel = p.mesa_numero
     ? (p.nome_comanda ? '<span style="font-size:.72rem;color:var(--ouro);font-weight:600;">' + p.nome_comanda + '</span>' : '') +
       (p.client_name ? '<span style="font-size:.72rem;color:var(--txt2);"> • 👤 ' + p.client_name + '</span>' : '')
-    : (p.client_name ? '<span style="font-size:.72rem;color:var(--txt2);">👤 ' + p.client_name + '</span>' : '');
+    : '<span style="background:rgba(76,201,240,.15);border:1px solid var(--azul);color:var(--azul);font-size:.68rem;font-weight:700;padding:1px 6px;border-radius:4px;">🛵 PEDIDO VIAGEM</span>' +
+      (p.client_name ? ' <span style="font-size:.72rem;color:var(--txt2);">• 👤 ' + p.client_name + '</span>' : '');
   const statusTag = jaPago ? 'PAGO' : p.status;
   const statusLabel = jaPago ? '✅ PAGO' : p.status;
   const btnFechar = '<button class="btn-ac btn-fechar-cmd" onclick="abrirModalFechamento(' + p.id + ',' + p.mesa_id + ')">' + (isViagem ? '✅ Concluir' : 'Fechar') + '</button>';
