@@ -936,20 +936,23 @@ async function verificarNovasImpressoes() {
                 if (impressoesProcessadas.has(novaImpressao.id)) continue;
                 impressoesProcessadas.add(novaImpressao.id);
                 tocarAlertaSonoro();
-                // AJ2: Notificação nativa no Windows (Electron)
+                const itensArr = Array.isArray(novaImpressao.itens) ? novaImpressao.itens : [];
+                const itensStr = itensArr.map(i => (i.qty||1) + 'x ' + (i.name||i.nome||'')).join(', ');
+                const mesaLabel = novaImpressao.mesa || '?';
+                const comandaLabel = novaImpressao.comanda_nome || 'Comanda';
+
+                // Notificação Electron (app Windows)
                 if (window.electronAPI) {
-                  const itens = Array.isArray(novaImpressao.itens)
-                    ? novaImpressao.itens.map(i => (i.qty||1)+'x '+i.name).join(', ')
-                    : '';
-                  const itensArr = Array.isArray(novaImpressao.itens) ? novaImpressao.itens : [];
                   window.electronAPI.novoPedidoNotificacao({
-                    mesa: novaImpressao.mesa || '?',
-                    comanda: novaImpressao.comanda_nome || 'Nova comanda',
+                    mesa: mesaLabel,
+                    comanda: comandaLabel,
                     cliente: novaImpressao.cliente || '',
                     itens: itensArr.map(i => (i.qty||1) + 'x ' + (i.name||i.nome||'')),
                     tipo: 'novo'
                   });
                 }
+                // Notificação Web (navegador comum)
+                mostrarNotificacaoBrowser(mesaLabel, comandaLabel, itensStr);
                 await imprimirComandaCozinha(novaImpressao);
                 await apagarImpressaoComConfirmacao(novaImpressao.id);
                 await new Promise(resolve => setTimeout(resolve, 500));
@@ -1687,23 +1690,66 @@ function filtrarItensModal() {
 }
 
 function renderItensModal(busca) {
-  const filtrado = todosProdutos.filter(function(p) {
-    return !busca || p.nome.toLowerCase().includes(busca) || (p.categoria || '').toLowerCase().includes(busca);
+  const normCatM = s => (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+  const ehPratos = cat => { const n = normCatM(cat); return n === 'pratos' || n === 'prato' || n === 'todos os pratos' || n.startsWith('todos os prat'); };
+
+  // Se não há busca: mostrar cardápio do dia + outros produtos (sem pratos)
+  const diaHoje = getDiaSemanaCozinha();
+  const diasUtil = ['segunda','terca','quarta','quinta','sexta'];
+  const nomesDias = {segunda:'SEGUNDA-FEIRA',terca:'TERÇA-FEIRA',quarta:'QUARTA-FEIRA',quinta:'QUINTA-FEIRA',sexta:'SEXTA-FEIRA'};
+  const norm = s => (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+
+  let html = '';
+
+  if (!busca) {
+    // Cardápio do dia ou mensagem fim de semana
+    if (!diasUtil.includes(diaHoje)) {
+      html += `<div style="background:rgba(255,183,3,.1);border:1px solid var(--ouro);border-radius:8px;padding:8px;text-align:center;color:var(--ouro);font-size:.75rem;margin-bottom:6px;">🗓️ <strong>Fim de semana</strong> — Sem cardápio especial do dia</div>`;
+    } else {
+      const itensDia = todosProdutos.filter(p => {
+        if (!p.dias_semana) return false;
+        let dias; try { dias = Array.isArray(p.dias_semana) ? p.dias_semana : JSON.parse(p.dias_semana); } catch(e){dias=[];}
+        return dias.some(d => norm(d) === norm(diaHoje));
+      });
+      if (itensDia.length) {
+        html += `<div style="font-size:.7rem;color:var(--ouro);font-weight:700;margin-bottom:4px;padding:2px 0;">📅 CARDÁPIO DO DIA — ${nomesDias[diaHoje]}</div>`;
+        itensDia.forEach(p => {
+          html += '<div class="item-sel-row" onclick="selecionarItemParaAdd(' + p.id + ')">';
+          html += '<div><div style="font-weight:700;font-size:.85rem;color:var(--ouro)">' + p.nome + '</div>';
+          html += (p.descricao ? '<div style="font-size:.7rem;color:var(--txt2)">' + p.descricao + '</div>' : '') + '</div>';
+          html += '<div style="color:var(--verde);font-weight:700;font-size:.85rem">' + R(p.preco) + '</div>';
+          html += '</div>';
+        });
+        html += '<div style="border-top:1px solid var(--borda);margin:6px 0;"></div>';
+      }
+    }
+  }
+
+  // Todos os produtos (sem PRATOS)
+  const filtrado = todosProdutos.filter(p => {
+    if (ehPratos(p.categoria)) return false;
+    if (!busca) return true;
+    return p.nome.toLowerCase().includes(busca) || (p.categoria||'').toLowerCase().includes(busca);
   });
-  if (!filtrado.length) {
+
+  if (!filtrado.length && !html) {
     document.getElementById('add-item-lista').innerHTML = '<div style="color:var(--txt3);text-align:center;padding:14px">Nenhum produto encontrado</div>';
     return;
   }
-  let html = '';
-  for (let i = 0; i < filtrado.length; i++) {
-    const p = filtrado[i];
-    html += '<div class="item-sel-row" onclick="selecionarItemParaAdd(' + p.id + ')">';
-    html += '<div><div style="font-weight:600;font-size:.85rem">' + p.nome + '</div>';
-    html += '<div style="font-size:.71rem;color:var(--txt2)">' + p.categoria + '</div></div>';
-    html += '<div style="color:var(--verde);font-weight:700;font-size:.85rem">' + R(p.preco) + '</div>';
-    html += '</div>';
-  }
-  document.getElementById('add-item-lista').innerHTML = html;
+
+  const cats = [...new Set(filtrado.map(p => p.categoria))];
+  cats.forEach(cat => {
+    html += '<div class="cat-hdr">' + cat.toUpperCase() + '</div>';
+    filtrado.filter(p => p.categoria === cat).forEach(p => {
+      html += '<div class="item-sel-row" onclick="selecionarItemParaAdd(' + p.id + ')">';
+      html += '<div><div style="font-weight:600;font-size:.85rem">' + p.nome + '</div>';
+      html += (p.descricao ? '<div style="font-size:.7rem;color:var(--txt2)">' + p.descricao + '</div>' : '<div style="font-size:.71rem;color:var(--txt2)">' + p.categoria + '</div>') + '</div>';
+      html += '<div style="color:var(--verde);font-weight:700;font-size:.85rem">' + R(p.preco) + '</div>';
+      html += '</div>';
+    });
+  });
+
+  document.getElementById('add-item-lista').innerHTML = html || '<div style="color:var(--txt3);text-align:center;padding:14px">Nenhum produto encontrado</div>';
 }
 
 function selecionarItemParaAdd(produtoId) {
@@ -2936,7 +2982,12 @@ function renderViagemCardapioDia() {
   if (!container) return;
   const diaHoje = getDiaSemanaCozinha();
   const diasUtil = ['segunda','terca','quarta','quinta','sexta'];
-  if (!diasUtil.includes(diaHoje)) { container.innerHTML = ''; return; }
+  if (!diasUtil.includes(diaHoje)) {
+    container.innerHTML = `<div style="background:rgba(255,183,3,.1);border:1px solid var(--ouro);border-radius:8px;padding:10px;text-align:center;color:var(--ouro);font-size:.8rem;margin-bottom:8px;flex-shrink:0;">
+      🗓️ <strong>Fim de semana</strong> — Sem cardápio especial do dia
+    </div>`;
+    return;
+  }
   const nomesDias = { segunda:'SEGUNDA-FEIRA', terca:'TERÇA-FEIRA', quarta:'QUARTA-FEIRA', quinta:'QUINTA-FEIRA', sexta:'SEXTA-FEIRA' };
   const normalize = s => (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();
   const itensDia = todosProdutos.filter(p => {
@@ -3273,6 +3324,39 @@ setInterval(keepAliveSupabase, 86400000);
 setInterval(keepAliveSupabase, 3600000);
 console.log('✅ KeepAlive Supabase ativado (ping a cada 1h e 24h)');
 
+// ==================== NOTIFICAÇÃO BROWSER ====================
+function pedirPermissaoNotificacao() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}
+
+function mostrarNotificacaoBrowser(mesa, comanda, itens) {
+  if (!('Notification' in window)) return;
+  if (Notification.permission !== 'granted') return;
+  
+  const titulo = '🔔 NOVO PEDIDO — Mesa ' + mesa;
+  const corpo = comanda + (itens ? '\n' + itens : '');
+  
+  try {
+    const notif = new Notification(titulo, {
+      body: corpo,
+      icon: 'https://b13l.github.io/diaz-delicias/icon.jpg',
+      tag: 'pedido-' + Date.now(),
+      requireInteraction: true
+    });
+    notif.onclick = () => { window.focus(); notif.close(); };
+    // Flash no título da aba
+    let flashCount = 0;
+    const originalTitle = document.title;
+    const flashInterval = setInterval(() => {
+      document.title = flashCount % 2 === 0 ? '🔔 NOVO PEDIDO!' : originalTitle;
+      flashCount++;
+      if (flashCount > 10) { clearInterval(flashInterval); document.title = originalTitle; }
+    }, 600);
+  } catch(e) {}
+}
+
 // ==================== REALTIME ====================
 function iniciarRealtime() {
     db.channel('painel-v4')
@@ -3319,6 +3403,7 @@ function waitSB() {
     carregarProdutos(); // carrega todosProdutos na inicialização para modais de pedido
     autoLimparHistorico(); // auto-excluir comandas com +15 dias
     keepAliveSupabase(); // primeiro ping imediato
+    pedirPermissaoNotificacao(); // pedir permissão para notificações
     iniciarRealtime();
     iniciarImpressaoAutomatica();
     
