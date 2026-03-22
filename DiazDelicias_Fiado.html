@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="theme-color" content="#0a0608">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="./manifest-fiado.json">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Diaz Fiado">
 <title>Diaz Delicias — Fiado</title>
@@ -66,6 +67,19 @@ html,body{background:var(--bg);color:var(--txt);font-family:'Segoe UI',system-ui
 .aviso-limite{background:rgba(255,71,87,.1);border:1px solid var(--vermelho);border-radius:8px;padding:10px 12px;font-size:.8rem;color:var(--vermelho);margin-top:8px;}
 .aviso-ok{background:rgba(0,230,118,.1);border:1px solid var(--verde);border-radius:8px;padding:10px 12px;font-size:.8rem;color:var(--verde);margin-top:8px;}
 .aviso-warn{background:rgba(255,183,3,.1);border:1px solid var(--ouro);border-radius:8px;padding:10px 12px;font-size:.8rem;color:var(--ouro);margin-top:8px;}
+
+/* PWA Install Button */
+.pwa-install-btn {
+  position: fixed; bottom: 20px; right: 16px; z-index: 9000;
+  background: linear-gradient(135deg, var(--rosa), var(--rosa-esc));
+  color: #fff; border: none; border-radius: 50px;
+  padding: 10px 16px; font-size: .78rem; font-weight: 700;
+  display: flex; align-items: center; gap: 6px;
+  box-shadow: 0 4px 20px var(--rosa-glow);
+  cursor: pointer; transition: transform .15s;
+}
+.pwa-install-btn:active { transform: scale(.93); }
+.pwa-install-btn.hidden { display: none; }
 </style>
 </head>
 <body>
@@ -257,15 +271,20 @@ async function enviarCadastro() {
 
   const { data: exist } = await db.from('clientes_fiado').select('id,status').eq('cpf',cpf).maybeSingle();
   if (exist) {
-    if (exist.status === 'pendente') { toast('CPF já cadastrado — aguardando aprovação','err'); return; }
-    if (exist.status === 'ativo') { toast('CPF já tem conta ativa! Use "Acessar Conta"','err'); return; }
+    if (exist.status === 'pendente_aprovacao') { toast('CPF já cadastrado — aguardando aprovação','err'); return; }
+    if (exist.status === 'ativo') { toast('CPF já tem conta ativa! Acesse pelo botão abaixo.','err'); return; }
   }
 
   const { error } = await db.from('clientes_fiado').insert({
-    nome, cpf, whatsapp: whats,
-    dia_vencimento: venc, periodicidade: periodo,
-    forma_pagamento: forma, limite_maximo: 100.00,
-    saldo_usado: 0, status: 'pendente'
+    nome,
+    cpf: cpf || null,
+    whatsapp: whats,
+    dia_vencimento: venc,
+    periodicidade: periodo,
+    forma_pagamento: forma,
+    limite_max: 0,
+    saldo_usado: 0,
+    status: 'pendente_aprovacao'
   });
   if (error) { toast('Erro: '+error.message,'err'); return; }
   toast('✅ Cadastro enviado!');
@@ -360,6 +379,79 @@ function toast(msg,tipo='ok') {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+
+
+// ===== PWA INSTALL =====
+let deferredPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  const btn = document.getElementById('pwa-install-btn');
+  if (btn) btn.classList.remove('hidden');
+});
+
+// Celular: mostrar botão sempre (para instruções iOS)
+document.addEventListener('DOMContentLoaded', () => {
+  const jaInstalado = window.matchMedia('(display-mode: standalone)').matches
+    || window.navigator.standalone === true;
+  if (!jaInstalado) {
+    const btn = document.getElementById('pwa-install-btn');
+    if (btn) btn.classList.remove('hidden');
+  }
+});
+
+async function instalarPWA() {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    if (outcome === 'accepted') {
+      document.getElementById('pwa-install-btn').classList.add('hidden');
+      toast('✅ Instalando app...');
+    }
+    return;
+  }
+  const jaInstalado = window.matchMedia('(display-mode: standalone)').matches
+    || window.navigator.standalone === true;
+  if (jaInstalado) {
+    toast('✅ App já está instalado!');
+    document.getElementById('pwa-install-btn').classList.add('hidden');
+    return;
+  }
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  if (isIOS) { mostrarModalPWA('📱 Instalar no iPhone/iPad',
+    '1️⃣ Toque no ícone <strong>compartilhar</strong> (□↑) na barra do Safari<br><br>' +
+    '2️⃣ Role e toque em <strong>"Adicionar à Tela de Início"</strong><br><br>' +
+    '3️⃣ Toque em <strong>"Adicionar"</strong>'); return; }
+  mostrarModalPWA('📲 Instalar no Android',
+    '1️⃣ Toque nos <strong>3 pontos ⋮</strong> no Chrome<br><br>' +
+    '2️⃣ Toque em <strong>"Adicionar à tela inicial"</strong> ou <strong>"Instalar app"</strong><br><br>' +
+    '3️⃣ Confirme tocando em <strong>"Adicionar"</strong>');
+}
+
+function mostrarModalPWA(titulo, instrucoes) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
+  overlay.innerHTML = `<div style="background:#1a1117;border:1px solid var(--rosa);border-radius:16px;padding:24px;max-width:340px;width:100%;text-align:center;">
+    <div style="font-size:1.1rem;font-weight:800;color:var(--rosa);margin-bottom:14px;">${titulo}</div>
+    <div style="font-size:.86rem;color:#ddd;line-height:1.7;text-align:left;margin-bottom:18px;">${instrucoes}</div>
+    <button onclick="this.closest('div[style]').parentElement.remove()" style="background:linear-gradient(135deg,var(--rosa),var(--rosa-esc));color:#fff;border:none;padding:11px 28px;border-radius:8px;font-weight:700;font-size:.9rem;cursor:pointer;width:100%;">Entendi ✓</button>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+// Registrar Service Worker para PWA funcionar
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js')
+    .then(() => console.log('SW Fiado registrado'))
+    .catch(e => console.log('SW:', e));
+}
 </script>
+
+<!-- Botão instalar PWA -->
+<button class="pwa-install-btn hidden" id="pwa-install-btn" onclick="instalarPWA()">
+  📲 Instalar App
+</button>
 </body>
 </html>
