@@ -938,7 +938,7 @@ async function verificarNovasImpressoes() {
                 tocarAlertaSonoro();
                 const itensArr = Array.isArray(novaImpressao.itens) ? novaImpressao.itens : [];
                 const itensStr = itensArr.map(i => (i.qty||1) + 'x ' + (i.name||i.nome||'')).join(', ');
-                const mesaLabel = novaImpressao.mesa || '?';
+                const mesaLabel = (novaImpressao.mesa === 0 || novaImpressao.mesa === '0' || !novaImpressao.mesa) ? '🛵 Viagem' : ('Mesa ' + novaImpressao.mesa);
                 const comandaLabel = novaImpressao.comanda_nome || 'Comanda';
 
                 // Notificação Electron (app Windows)
@@ -951,8 +951,7 @@ async function verificarNovasImpressoes() {
                     tipo: 'novo'
                   });
                 }
-                // Notificação Web (navegador comum)
-                mostrarNotificacaoBrowser(mesaLabel, comandaLabel, itensStr);
+                // Notificação Web removida - usar apenas Electron
                 await imprimirComandaCozinha(novaImpressao);
                 await apagarImpressaoComConfirmacao(novaImpressao.id);
                 await new Promise(resolve => setTimeout(resolve, 500));
@@ -3324,38 +3323,7 @@ setInterval(keepAliveSupabase, 86400000);
 setInterval(keepAliveSupabase, 3600000);
 console.log('✅ KeepAlive Supabase ativado (ping a cada 1h e 24h)');
 
-// ==================== NOTIFICAÇÃO BROWSER ====================
-function pedirPermissaoNotificacao() {
-  if ('Notification' in window && Notification.permission === 'default') {
-    Notification.requestPermission();
-  }
-}
 
-function mostrarNotificacaoBrowser(mesa, comanda, itens) {
-  if (!('Notification' in window)) return;
-  if (Notification.permission !== 'granted') return;
-  
-  const titulo = '🔔 NOVO PEDIDO — Mesa ' + mesa;
-  const corpo = comanda + (itens ? '\n' + itens : '');
-  
-  try {
-    const notif = new Notification(titulo, {
-      body: corpo,
-      icon: 'https://b13l.github.io/diaz-delicias/icon.jpg',
-      tag: 'pedido-' + Date.now(),
-      requireInteraction: true
-    });
-    notif.onclick = () => { window.focus(); notif.close(); };
-    // Flash no título da aba
-    let flashCount = 0;
-    const originalTitle = document.title;
-    const flashInterval = setInterval(() => {
-      document.title = flashCount % 2 === 0 ? '🔔 NOVO PEDIDO!' : originalTitle;
-      flashCount++;
-      if (flashCount > 10) { clearInterval(flashInterval); document.title = originalTitle; }
-    }, 600);
-  } catch(e) {}
-}
 
 // ==================== REALTIME ====================
 function iniciarRealtime() {
@@ -3403,7 +3371,6 @@ function waitSB() {
     carregarProdutos(); // carrega todosProdutos na inicialização para modais de pedido
     autoLimparHistorico(); // auto-excluir comandas com +15 dias
     keepAliveSupabase(); // primeiro ping imediato
-    pedirPermissaoNotificacao(); // pedir permissão para notificações
     iniciarRealtime();
     iniciarImpressaoAutomatica();
     
