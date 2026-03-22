@@ -953,10 +953,24 @@ async function verificarNovasImpressoes() {
                     isViagem: ehViagem
                   });
                 }
-                // Notificação Web removida - usar apenas Electron
-                await imprimirComandaCozinha(novaImpressao);
-                await apagarImpressaoComConfirmacao(novaImpressao.id);
-                await new Promise(resolve => setTimeout(resolve, 500));
+                // Verificar se é bebida pendente do PDV (não imprimir, só registrar)
+                if (novaImpressao.observacao === 'BEBIDA_PENDENTE') {
+                  // Encontrar o pedido pelo mesa+comanda para pegar o ID
+                  const pedido = pedidosAtuais.find(p =>
+                    String(p.mesa_numero) === String(novaImpressao.mesa) &&
+                    p.nome_comanda === novaImpressao.comanda_nome
+                  );
+                  if (pedido && itensArr.length) {
+                    adicionarBebidasPendentes(pedido.id, itensArr);
+                    renderPedidos(pedidosAtuais);
+                  }
+                  await apagarImpressaoComConfirmacao(novaImpressao.id);
+                } else {
+                  // Notificação Web removida - usar apenas Electron
+                  await imprimirComandaCozinha(novaImpressao);
+                  await apagarImpressaoComConfirmacao(novaImpressao.id);
+                  await new Promise(resolve => setTimeout(resolve, 500));
+                }
             }
         }
     } catch (error) {
