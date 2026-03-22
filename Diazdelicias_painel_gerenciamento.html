@@ -318,6 +318,7 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;min-
   <div class="nav-tab" onclick="trocarPg('pg-historico',this)">&#x1F4DC; Historico</div>
   <div class="nav-tab" onclick="trocarPg('pg-estoque',this)">&#x1F4E6; Estoque</div>
   <div class="nav-tab" onclick="trocarPg('pg-garcom',this)">👨‍🍳 Garçom</div>
+  <div class="nav-tab" onclick="trocarPg('pg-contas',this)">💰 Contas a Pagar</div>
 </div>
 
 <div id="pg-principal" class="pg ativa">
@@ -770,6 +771,103 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;min-
   </div>
 </div>
 
+
+<div id="pg-contas" class="pg">
+  <div class="sec-titulo neon-ouro" style="margin-bottom:16px;">💰 Contas a Pagar</div>
+
+  <!-- Seletor de Mês/Ano -->
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+    <select id="contas-mes" class="form-input" style="width:auto;" onchange="renderContas()">
+      <option value="1">Janeiro</option><option value="2">Fevereiro</option>
+      <option value="3">Março</option><option value="4">Abril</option>
+      <option value="5">Maio</option><option value="6">Junho</option>
+      <option value="7">Julho</option><option value="8">Agosto</option>
+      <option value="9">Setembro</option><option value="10">Outubro</option>
+      <option value="11">Novembro</option><option value="12">Dezembro</option>
+    </select>
+    <select id="contas-ano" class="form-input" style="width:auto;" onchange="renderContas()">
+    </select>
+    <button class="btn-prim" style="width:auto;padding:9px 16px;" onclick="abrirModalConta()">+ Nova Conta</button>
+    <div id="contas-resumo-bar" style="margin-left:auto;display:flex;gap:12px;flex-wrap:wrap;"></div>
+  </div>
+
+  <!-- Tabela de contas -->
+  <div style="background:var(--card);border:1px solid var(--borda);border-radius:12px;overflow:hidden;">
+    <div style="overflow-x:auto;">
+      <table id="contas-tabela" style="width:100%;border-collapse:collapse;min-width:600px;">
+        <thead>
+          <tr style="background:var(--card2);border-bottom:2px solid var(--borda);">
+            <th style="padding:10px 12px;text-align:left;font-size:.75rem;color:var(--txt2);font-weight:700;white-space:nowrap;">DATA</th>
+            <th style="padding:10px 12px;text-align:left;font-size:.75rem;color:var(--txt2);font-weight:700;">DESCRIÇÃO</th>
+            <th style="padding:10px 12px;text-align:right;font-size:.75rem;color:var(--txt2);font-weight:700;">VALOR</th>
+            <th style="padding:10px 12px;text-align:center;font-size:.75rem;color:var(--txt2);font-weight:700;">PAGAMENTO</th>
+            <th style="padding:10px 12px;text-align:center;font-size:.75rem;color:var(--txt2);font-weight:700;">FORMA PG.</th>
+            <th style="padding:10px 12px;text-align:center;font-size:.75rem;color:var(--txt2);font-weight:700;">STATUS</th>
+            <th style="padding:10px 12px;text-align:center;font-size:.75rem;color:var(--txt2);font-weight:700;">AÇÕES</th>
+          </tr>
+        </thead>
+        <tbody id="contas-tbody">
+          <tr><td colspan="7" style="text-align:center;padding:30px;color:var(--txt3);">Nenhuma conta cadastrada</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Nova/Editar Conta -->
+<div class="modal-ov" id="modal-conta">
+  <div class="modal-box" style="max-width:480px;">
+    <div class="modal-titulo">📝 Conta a Pagar</div>
+    <input type="hidden" id="conta-id">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Data</label>
+        <input type="date" id="conta-data" class="form-input">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Valor R$</label>
+        <input type="number" id="conta-valor" class="form-input" step="0.01" placeholder="0,00">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Descrição</label>
+      <input type="text" id="conta-descricao" class="form-input" placeholder="Ex: Aluguel, Luz, Fornecedor...">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Data Pagamento</label>
+        <input type="date" id="conta-data-pg" class="form-input">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Forma de Pagamento</label>
+        <select id="conta-forma-pg" class="form-input">
+          <option value="">— Selecione —</option>
+          <option>Dinheiro</option><option>PIX</option>
+          <option>Cartão Crédito</option><option>Cartão Débito</option>
+          <option>Boleto</option><option>Transferência</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Status</label>
+      <select id="conta-status" class="form-input">
+        <option value="Pendente">⏳ Pendente</option>
+        <option value="Pago">✅ Pago</option>
+        <option value="Vencido">🔴 Vencido</option>
+        <option value="Cancelado">❌ Cancelado</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Observação (opcional)</label>
+      <input type="text" id="conta-obs" class="form-input" placeholder="Detalhes adicionais...">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-sec" onclick="fecharModal('modal-conta')">Cancelar</button>
+      <button class="btn-prim" onclick="salvarConta()">💾 Salvar Conta</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast-wrap" class="toast-wrap"></div>
 <div id="comanda-impressao"></div>
 
@@ -1047,6 +1145,10 @@ function trocarPg(id, el) {
   if (id === 'pg-cardapio') { carregarProdutos(); carregarDiaLista(); }
   if (id === 'pg-historico') carregarHistorico();
   if (id === 'pg-estoque') renderEstoque(getEstoque());
+  if (id === 'pg-contas') {
+    initContasAno();
+    renderContas();
+  }
   if (id === 'pg-garcom') {
     verificarSessaoGarcom();
     // Polling de 5s para atualizar status em tempo real
@@ -3187,7 +3289,17 @@ async function enviarPedidoViagem() {
       body{font-family:monospace;font-size:12px;max-width:300px;margin:0 auto;padding:8px;}
       .c{text-align:center;} .b{font-weight:bold;} hr{border:none;border-top:2px solid #000;margin:5px 0;}
       table{width:100%;} td{font-size:12px;} .tr td{font-weight:bold;font-size:13px;border-top:2px solid #000;padding-top:3px;}
-    </style></head><body>
+    /* ==================== CONTAS A PAGAR ==================== */
+.conta-row { border-bottom:1px solid var(--borda); transition:background .15s; }
+.conta-row:hover { background:rgba(255,255,255,.03); }
+.conta-row td { padding:9px 12px; font-size:.82rem; }
+.conta-status { display:inline-block; padding:2px 8px; border-radius:4px; font-size:.7rem; font-weight:700; }
+.st-pendente { background:rgba(255,183,3,.15); color:var(--ouro); border:1px solid var(--ouro); }
+.st-pago { background:rgba(0,230,118,.15); color:var(--verde); border:1px solid var(--verde); }
+.st-vencido { background:rgba(255,71,87,.15); color:var(--vermelho); border:1px solid var(--vermelho); }
+.st-cancelado { background:rgba(255,255,255,.08); color:var(--txt3); border:1px solid var(--txt3); }
+.neon-ouro { color:var(--ouro); text-shadow:0 0 12px rgba(255,183,3,.3); }
+</style></head><body>
     <div class="c b" style="font-size:15px;">DIAZ DELICIAS</div>
     <div class="c b" style="font-size:11px;color:#c00;">🛵 PEDIDO VIAGEM</div>
     <div class="c" style="font-size:10px;">${dataHora}</div>
@@ -3342,6 +3454,159 @@ setInterval(keepAliveSupabase, 3600000);
 console.log('✅ KeepAlive Supabase ativado (ping a cada 1h e 24h)');
 
 
+
+// ==================== CONTAS A PAGAR ====================
+const CONTAS_KEY = 'dz_contas_pagar';
+
+function getContas() {
+  try { return JSON.parse(localStorage.getItem(CONTAS_KEY) || '[]'); } catch(e) { return []; }
+}
+function saveContas(data) { localStorage.setItem(CONTAS_KEY, JSON.stringify(data)); }
+
+function initContasAno() {
+  const sel = document.getElementById('contas-ano');
+  if (!sel) return;
+  const anoAtual = new Date().getFullYear();
+  sel.innerHTML = '';
+  for (let a = anoAtual - 1; a <= anoAtual + 2; a++) {
+    const opt = document.createElement('option');
+    opt.value = a; opt.textContent = a;
+    if (a === anoAtual) opt.selected = true;
+    sel.appendChild(opt);
+  }
+  // Mês atual
+  const selMes = document.getElementById('contas-mes');
+  if (selMes) selMes.value = new Date().getMonth() + 1;
+}
+
+function renderContas() {
+  const mes = parseInt(document.getElementById('contas-mes')?.value || new Date().getMonth() + 1);
+  const ano = parseInt(document.getElementById('contas-ano')?.value || new Date().getFullYear());
+  const todas = getContas();
+  const contas = todas.filter(c => {
+    const d = new Date(c.data + 'T00:00:00');
+    return d.getMonth() + 1 === mes && d.getFullYear() === ano;
+  }).sort((a, b) => new Date(a.data) - new Date(b.data));
+
+  const tbody = document.getElementById('contas-tbody');
+  if (!tbody) return;
+
+  if (!contas.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--txt3);">Nenhuma conta para este mês</td></tr>';
+    renderContasResumo(contas);
+    return;
+  }
+
+  const meses = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const stClass = { 'Pendente':'st-pendente','Pago':'st-pago','Vencido':'st-vencido','Cancelado':'st-cancelado' };
+
+  tbody.innerHTML = contas.map(c => {
+    const stCls = stClass[c.status] || 'st-pendente';
+    const dataFmt = c.data ? new Date(c.data+'T00:00:00').toLocaleDateString('pt-BR') : '—';
+    const dataPgFmt = c.data_pg ? new Date(c.data_pg+'T00:00:00').toLocaleDateString('pt-BR') : '—';
+    return `<tr class="conta-row">
+      <td style="white-space:nowrap;">${dataFmt}</td>
+      <td>
+        <div style="font-weight:600;">${c.descricao}</div>
+        ${c.obs ? '<div style="font-size:.72rem;color:var(--txt2);">' + c.obs + '</div>' : ''}
+      </td>
+      <td style="text-align:right;font-weight:700;color:var(--verde);">${R(c.valor)}</td>
+      <td style="text-align:center;white-space:nowrap;">${dataPgFmt}</td>
+      <td style="text-align:center;">${c.forma_pg || '—'}</td>
+      <td style="text-align:center;"><span class="conta-status ${stCls}">${c.status}</span></td>
+      <td style="text-align:center;white-space:nowrap;">
+        <button onclick="editarConta('${c.id}')" style="background:var(--azul2);color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:.72rem;margin-right:3px;">✏️</button>
+        <button onclick="deletarConta('${c.id}')" style="background:rgba(255,71,87,.2);color:var(--vermelho);border:1px solid var(--vermelho);border-radius:5px;padding:3px 8px;cursor:pointer;font-size:.72rem;">🗑️</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  renderContasResumo(contas);
+}
+
+function renderContasResumo(contas) {
+  const totalGeral = contas.reduce((s, c) => s + (c.valor || 0), 0);
+  const totalPago = contas.filter(c => c.status === 'Pago').reduce((s, c) => s + (c.valor || 0), 0);
+  const totalPendente = contas.filter(c => c.status === 'Pendente' || c.status === 'Vencido').reduce((s, c) => s + (c.valor || 0), 0);
+  const bar = document.getElementById('contas-resumo-bar');
+  if (!bar) return;
+  bar.innerHTML = `
+    <div style="background:var(--card);border:1px solid var(--borda);border-radius:8px;padding:6px 12px;text-align:center;">
+      <div style="font-size:.65rem;color:var(--txt2);">TOTAL</div>
+      <div style="font-weight:800;color:var(--txt);">${R(totalGeral)}</div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--verde);border-radius:8px;padding:6px 12px;text-align:center;">
+      <div style="font-size:.65rem;color:var(--txt2);">PAGO</div>
+      <div style="font-weight:800;color:var(--verde);">${R(totalPago)}</div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--ouro);border-radius:8px;padding:6px 12px;text-align:center;">
+      <div style="font-size:.65rem;color:var(--txt2);">PENDENTE</div>
+      <div style="font-weight:800;color:var(--ouro);">${R(totalPendente)}</div>
+    </div>`;
+}
+
+function abrirModalConta(id = null) {
+  document.getElementById('conta-id').value = id || '';
+  if (id) {
+    const c = getContas().find(x => x.id === id);
+    if (!c) return;
+    document.getElementById('conta-data').value = c.data || '';
+    document.getElementById('conta-valor').value = c.valor || '';
+    document.getElementById('conta-descricao').value = c.descricao || '';
+    document.getElementById('conta-data-pg').value = c.data_pg || '';
+    document.getElementById('conta-forma-pg').value = c.forma_pg || '';
+    document.getElementById('conta-status').value = c.status || 'Pendente';
+    document.getElementById('conta-obs').value = c.obs || '';
+  } else {
+    document.getElementById('conta-data').value = new Date().toISOString().split('T')[0];
+    document.getElementById('conta-valor').value = '';
+    document.getElementById('conta-descricao').value = '';
+    document.getElementById('conta-data-pg').value = '';
+    document.getElementById('conta-forma-pg').value = '';
+    document.getElementById('conta-status').value = 'Pendente';
+    document.getElementById('conta-obs').value = '';
+  }
+  document.getElementById('modal-conta').classList.add('show');
+}
+
+function editarConta(id) { abrirModalConta(id); }
+
+function salvarConta() {
+  const id = document.getElementById('conta-id').value;
+  const data = document.getElementById('conta-data').value;
+  const valor = parseFloat(document.getElementById('conta-valor').value);
+  const descricao = document.getElementById('conta-descricao').value.trim();
+  if (!data || !valor || !descricao) { toast('Preencha data, valor e descrição', 'err'); return; }
+
+  const conta = {
+    id: id || 'c_' + Date.now(),
+    data, valor, descricao,
+    data_pg: document.getElementById('conta-data-pg').value,
+    forma_pg: document.getElementById('conta-forma-pg').value,
+    status: document.getElementById('conta-status').value,
+    obs: document.getElementById('conta-obs').value.trim()
+  };
+
+  const todas = getContas();
+  if (id) {
+    const idx = todas.findIndex(x => x.id === id);
+    if (idx !== -1) todas[idx] = conta; else todas.push(conta);
+  } else {
+    todas.push(conta);
+  }
+  saveContas(todas);
+  fecharModal('modal-conta');
+  renderContas();
+  toast(id ? '✅ Conta atualizada!' : '✅ Conta adicionada!');
+}
+
+function deletarConta(id) {
+  if (!confirm('Remover esta conta?')) return;
+  const todas = getContas().filter(c => c.id !== id);
+  saveContas(todas);
+  renderContas();
+  toast('🗑️ Conta removida');
+}
 
 // ==================== REALTIME ====================
 function iniciarRealtime() {
