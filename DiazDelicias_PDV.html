@@ -424,6 +424,8 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;font
         <div class="carr-itens" id="carr-itens">
           <div class="empty-st"><span>🛒</span><p>Adicione itens</p></div>
         </div>
+        <!-- Alerta bebidas pendentes -->
+        <div id="bebidas-pendentes-pdv" style="display:none;background:rgba(76,201,240,.1);border:1px solid var(--azul);border-radius:8px;padding:8px 10px;margin:0 10px 6px;"></div>
         <div class="carr-footer">
           <div class="total-row">
             <span class="total-lbl">Total</span>
@@ -632,23 +634,24 @@ async function sincronizarComandaAtual() {
       !carrinho.some(ci => ci.item_id === bi.item_id && ci.status_cozinha === 'novo')
     );
 
-    // Reconstruir carrinho: itens enviados vêm do banco, novos ficam como estão
+    // Preservar itens 'novo' do carrinho local - NÃO marcar como enviado
+    // mesmo que o banco tenha recebido via autoSave
     const carrinhoNovos = carrinho.filter(ci => ci.status_cozinha === 'novo');
-    const carrinhoEnviados = (data.order_details || []).map(bi => ({
-      item_id: bi.item_id,
-      name: bi.name || bi.nome,
-      price: bi.price || bi.preco,
-      qty: bi.qty,
-      status_cozinha: 'enviado'
-    }));
+    const idsNovos = new Set(carrinhoNovos.map(i => i.item_id));
 
-    // Merge: enviados do banco + novos do carrinho local
-    carrinho = [...carrinhoEnviados];
-    for (const novo of carrinhoNovos) {
-      const ex = carrinho.find(c => c.item_id === novo.item_id);
-      if (ex) ex.qty += novo.qty;
-      else carrinho.push(novo);
-    }
+    // Itens do banco: apenas os que NÃO estão marcados como 'novo' localmente
+    const carrinhoEnviados = (data.order_details || [])
+      .filter(bi => !idsNovos.has(bi.item_id))
+      .map(bi => ({
+        item_id: bi.item_id,
+        name: bi.name || bi.nome,
+        price: bi.price || bi.preco,
+        qty: bi.qty,
+        status_cozinha: 'enviado'
+      }));
+
+    // Merge: enviados do banco (sem os 'novo') + novos do carrinho local
+    carrinho = [...carrinhoEnviados, ...carrinhoNovos];
 
     comandaAtual = { ...comandaAtual, ...data };
     renderCarrinho();
@@ -998,7 +1001,9 @@ function addItem(id) {
   } else {
     carrinho.push({
       item_id: id, name: item.nome,
-      price: item.preco, qty: 1, status_cozinha: 'novo'
+      price: item.preco, qty: 1,
+      categoria: item.categoria || '',
+      status_cozinha: 'novo'
     });
   }
   
@@ -1008,35 +1013,48 @@ function addItem(id) {
   autoSalvarCarrinho();
 }
 
-// AJ3: Debounce para auto-save (evita muitas requisições simultâneas)
+// AJ3: Auto-save do RASCUNHO - salva apenas itens já enviados + cliente/comanda
+// NÃO salva itens 'novo' ainda não confirmados para não interferir no fluxo de impressão
 let _autoSaveTimer = null;
+let _autoSaveVersion = 0; // versão para evitar race conditions
+
 function autoSalvarCarrinho() {
   if (!comandaAtual) return;
   clearTimeout(_autoSaveTimer);
   _autoSaveTimer = setTimeout(async () => {
     try {
-      const total = carrinho.reduce((s, i) => s + (i.price * i.qty), 0);
-      // Salvar todos os itens (novos e enviados) para visibilidade na cozinha
-      const itensParaSalvar = carrinho.map(i => ({
-        item_id: i.item_id, name: i.name,
-        price: i.price, qty: i.qty
-      }));
-      // Salvar também cliente e comanda para identificação no painel
+      // Só salvar itens já enviados para a cozinha (status_cozinha === 'enviado')
+      // Itens 'novo' só serão salvos quando o garçom clicar "Enviar para Cozinha"
+      const itensJaEnviados = carrinho.filter(i => i.status_cozinha === 'enviado');
+      const itensNovosLocal = carrinho.filter(i => i.status_cozinha === 'novo');
+      
+      // Salvar cliente e comanda para identificação (sem alterar order_details se há novos)
       const clienteAtual = document.getElementById('inp-cliente') ?
         document.getElementById('inp-cliente').value.trim() : '';
       const nomeComandaAtual = document.getElementById('inp-nome-comanda') ?
         document.getElementById('inp-nome-comanda').value.trim() : '';
       
-      const updateData = {
-        order_details: itensParaSalvar,
-        total_value: total
-      };
+      const updateData = {};
       if (clienteAtual) updateData.client_name = clienteAtual;
       if (nomeComandaAtual) updateData.nome_comanda = nomeComandaAtual;
+
+      // Se há itens novos: salvar todos (enviados + novos) para visibilidade na cozinha
+      // mas marcar internamente que foi o autoSave quem salvou
+      if (itensNovosLocal.length > 0) {
+        const todos = carrinho.map(i => ({
+          item_id: i.item_id, name: i.name, price: i.price, qty: i.qty
+        }));
+        updateData.order_details = todos;
+        updateData.total_value = carrinho.reduce((s, i) => s + (i.price * i.qty), 0);
+        _autoSaveVersion++;
+        updateData._autosave_version = _autoSaveVersion; // campo não existe no banco, ignorado
+      }
       
-      await db.from('pedidos').update(updateData).eq('id', comandaAtual.id);
+      if (Object.keys(updateData).length > 0) {
+        await db.from('pedidos').update(updateData).eq('id', comandaAtual.id);
+      }
     } catch(e) { /* silencioso */ }
-  }, 600); // aguarda 600ms para agrupar vários adds rápidos
+  }, 800);
 }
 
 function updateQty(id, delta) {
@@ -1060,13 +1078,45 @@ function updateQty(id, delta) {
 function renderCarrinho() {
   const total = carrinho.reduce((s, i) => s + (i.price * i.qty), 0);
   document.getElementById('carr-total').textContent = R(total);
-  document.getElementById('btn-env').disabled = carrinho.length === 0;
+  const qtdNovos = carrinho.filter(i => i.status_cozinha === 'novo').length;
+  const btnEnv = document.getElementById('btn-env');
+  btnEnv.disabled = carrinho.length === 0;
+
+  // Alerta de bebidas pendentes no carrinho
+  const bebidasAlert = document.getElementById('bebidas-pendentes-pdv');
+  if (bebidasAlert) {
+    if (bebidasCmd.length) {
+      bebidasAlert.style.display = 'block';
+      bebidasAlert.innerHTML = '<div style="font-size:.72rem;color:var(--azul);font-weight:700;margin-bottom:4px;">🥤 Bebidas pendentes — entregar ao cliente:</div>' +
+        bebidasCmd.map(function(b, bi) {
+          return '<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;">' +
+            '<span style="font-size:.78rem;">' + b.qty + 'x ' + b.name + '</span>' +
+            '<button data-bidx="' + bi + '" onclick="entregarBebidaPDVIdx(this)" ' +
+            'style="background:var(--azul);color:#000;border:none;border-radius:5px;padding:2px 8px;font-size:.7rem;font-weight:700;cursor:pointer;">✅ Entregue</button>' +
+            '</div>';
+        }).join('');
+    } else {
+      bebidasAlert.style.display = 'none';
+    }
+  }
+  // Indicar visualmente quantos itens novos serão enviados
+  if (qtdNovos > 0) {
+    btnEnv.textContent = '🖨️ Enviar para Cozinha (' + qtdNovos + ' novo' + (qtdNovos > 1 ? 's' : '') + ')';
+    btnEnv.style.background = 'linear-gradient(135deg,var(--verde-esc),#00a046)';
+  } else {
+    btnEnv.textContent = '🖨️ Enviar para Cozinha';
+    btnEnv.style.background = '';
+  }
   
   const cont = document.getElementById('carr-itens');
   if (!carrinho.length) {
     cont.innerHTML = '<div class="empty-st"><span>🛒</span><p>Adicione itens</p></div>';
     return;
   }
+
+  // Mostrar bebidas pendentes desta comanda
+  const cmdId = comandaAtual ? comandaAtual.id : null;
+  const bebidasCmd = cmdId && bebidasPendentesPDV[cmdId] ? bebidasPendentesPDV[cmdId] : [];
   
   let html = '';
   for (let i = 0; i < carrinho.length; i++) {
@@ -1086,6 +1136,54 @@ function renderCarrinho() {
 }
 
 // ==================== ENVIAR PARA COZINHA ====================
+// ==================== LÓGICA BEBIDAS PDV ====================
+function entregarBebidaPDV(nomeBebida) {
+  if (!comandaAtual || !bebidasPendentesPDV[comandaAtual.id]) return;
+  const idx = bebidasPendentesPDV[comandaAtual.id].findIndex(b => b.name === nomeBebida);
+  if (idx !== -1) {
+    const nome = bebidasPendentesPDV[comandaAtual.id][idx].name;
+    bebidasPendentesPDV[comandaAtual.id].splice(idx, 1);
+    if (!bebidasPendentesPDV[comandaAtual.id].length) delete bebidasPendentesPDV[comandaAtual.id];
+    renderCarrinho();
+    toast('✅ Bebida entregue: ' + nome);
+  }
+}
+
+function entregarBebidaPDVIdx(btn) {
+  if (!comandaAtual || !bebidasPendentesPDV[comandaAtual.id]) return;
+  const idx = parseInt(btn.getAttribute('data-bidx'));
+  const lista = bebidasPendentesPDV[comandaAtual.id];
+  if (!isNaN(idx) && lista[idx]) {
+    const nome = lista[idx].name;
+    lista.splice(idx, 1);
+    if (!lista.length) delete bebidasPendentesPDV[comandaAtual.id];
+    renderCarrinho();
+    toast('✅ Bebida entregue: ' + nome);
+  }
+}
+
+
+const CATS_BEBIDA_PDV = ['bebidas', 'bebida', 'drinks', 'drink', 'refrigerante', 'sucos', 'suco', 'cervejas', 'cerveja'];
+function isBebidaPDV(item) {
+  const cat = (item.categoria || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+  const nome = (item.name || item.nome || '').toLowerCase();
+  return CATS_BEBIDA_PDV.some(b => cat.includes(b)) ||
+    nome.includes('refrigerante') || nome.includes('suco') ||
+    nome.includes('cerveja') || nome.includes('bebida');
+}
+
+// Bebidas pendentes por comanda: { comandaId: [{name, qty}] }
+const bebidasPendentesPDV = {};
+
+function adicionarBebidaPendentePDV(comandaId, itensBebida) {
+  if (!bebidasPendentesPDV[comandaId]) bebidasPendentesPDV[comandaId] = [];
+  for (const b of itensBebida) {
+    const ex = bebidasPendentesPDV[comandaId].find(x => x.name === b.name);
+    if (ex) ex.qty += (b.qty || 1);
+    else bebidasPendentesPDV[comandaId].push({ name: b.name, qty: b.qty || 1 });
+  }
+}
+
 async function enviarParaCozinha() {
   if (!carrinho.length) return;
   
@@ -1097,10 +1195,36 @@ async function enviarParaCozinha() {
   const itensNovos = carrinho.filter(i => i.status_cozinha === 'novo');
   
   if (itensNovos.length > 0) {
-    const impresso = await imprimirNaCozinha(itensNovos, mesaAtual.numero, nomeComanda, obs);
-    if (!impresso) {
-      toast('Erro ao enviar para impressão', 'err');
-      return;
+    // Verificar se é o primeiro envio desta comanda
+    const itensJaEnviados = carrinho.filter(i => i.status_cozinha === 'enviado');
+    const isPrimeiroEnvio = itensJaEnviados.length === 0;
+
+    if (isPrimeiroEnvio) {
+      // PRIMEIRO ENVIO: tudo vai para cozinha normalmente
+      const impresso = await imprimirNaCozinha(itensNovos, mesaAtual.numero, nomeComanda, obs);
+      if (!impresso) { toast('Erro ao enviar para impressão', 'err'); return; }
+      // Bebidas do primeiro envio ficam como pendentes para acompanhamento
+      const bebidasPrimeiro = itensNovos.filter(i => isBebidaPDV(i));
+      if (bebidasPrimeiro.length) adicionarBebidaPendentePDV(comandaAtual.id, bebidasPrimeiro);
+    } else {
+      // SEGUNDO ENVIO EM DIANTE: separar bebidas de comida
+      const itensBebida = itensNovos.filter(i => isBebidaPDV(i));
+      const itensComida = itensNovos.filter(i => !isBebidaPDV(i));
+
+      // Bebidas: registrar como pendentes, NÃO imprimir
+      if (itensBebida.length) {
+        adicionarBebidaPendentePDV(comandaAtual.id, itensBebida);
+        const nomes = itensBebida.map(b => b.qty + 'x ' + b.name).join(', ');
+        toast('🥤 Bebida(s) adicionada(s) — avisar garçom: ' + nomes, 'info');
+      }
+      // Comida: imprimir normalmente
+      if (itensComida.length) {
+        const impresso = await imprimirNaCozinha(itensComida, mesaAtual.numero, nomeComanda, obs);
+        if (!impresso) { toast('Erro ao enviar para impressão', 'err'); return; }
+      } else if (!itensBebida.length) {
+        const impresso = await imprimirNaCozinha(itensNovos, mesaAtual.numero, nomeComanda, obs);
+        if (!impresso) { toast('Erro ao enviar para impressão', 'err'); return; }
+      }
     }
   }
   
