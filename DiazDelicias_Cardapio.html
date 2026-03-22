@@ -178,10 +178,12 @@ async function carregarMesas() {
   const valAtual = sel.value;
   // Limpar e repopular
   sel.innerHTML = '<option value="">Selecione sua mesa</option>';
+  const statusLabel = { LIVRE: '🟢 Livre', OCUPADA: '🔴 Ocupada', PREPARANDO: '🟡 Preparando', PRONTO: '🔵 Pronto' };
   mesas.forEach(m => {
     const opt = document.createElement('option');
     opt.value = m.id;
-    opt.textContent = `Mesa ${m.numero}`;
+    const st = statusLabel[m.status] || m.status || '';
+    opt.textContent = `Mesa ${m.numero}  ${st}`;
     if (String(m.id) === String(valAtual)) opt.selected = true;
     sel.appendChild(opt);
   });
@@ -356,9 +358,14 @@ async function enviarPedido() {
     });
 
     document.getElementById('modal-txt').innerHTML =
-      `<strong>Mesa ${numMesa}</strong> • ${nomeCmd}<br><strong>${nomeCliente}</strong><br><br>
-       ${pedido.length} item(s) • Total: <strong>${R(total)}</strong><br><br>
-       Aguarde, estamos preparando! 🍽️`;
+      `<div style="font-size:1.1rem;margin-bottom:8px;">Mesa <strong>${numMesa}</strong></div>
+       <div style="background:rgba(0,230,118,.12);border:1px solid var(--verde);border-radius:8px;padding:10px;margin-bottom:10px;">
+         <div style="font-size:.78rem;color:var(--txt2);margin-bottom:2px;">Sua comanda é:</div>
+         <div style="font-size:1.3rem;font-weight:900;color:var(--verde);">${nomeCmd}</div>
+       </div>
+       <div style="color:var(--txt2);font-size:.85rem;">Cliente: <strong>${nomeCliente}</strong></div>
+       <div style="color:var(--txt2);font-size:.85rem;margin-top:4px;">${pedido.length} item(s) • Total: <strong style="color:var(--verde);">${R(total)}</strong></div>
+       <div style="margin-top:10px;font-size:.9rem;">Aguarde, estamos preparando! 🍽️</div>`;
     document.getElementById('modal-sucesso').classList.add('open');
     pedido = [];
     atualizarControles();
