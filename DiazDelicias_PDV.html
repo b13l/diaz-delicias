@@ -1078,28 +1078,15 @@ function updateQty(id, delta) {
 function renderCarrinho() {
   const total = carrinho.reduce((s, i) => s + (i.price * i.qty), 0);
   document.getElementById('carr-total').textContent = R(total);
+
+  // --- BEBIDAS PENDENTES: declarar ANTES de usar ---
+  const cmdId = comandaAtual ? comandaAtual.id : null;
+  const bebidasCmd = cmdId && bebidasPendentesPDV[cmdId] ? bebidasPendentesPDV[cmdId] : [];
+
+  // Botão enviar: mostrar qtd de novos
   const qtdNovos = carrinho.filter(i => i.status_cozinha === 'novo').length;
   const btnEnv = document.getElementById('btn-env');
   btnEnv.disabled = carrinho.length === 0;
-
-  // Alerta de bebidas pendentes no carrinho
-  const bebidasAlert = document.getElementById('bebidas-pendentes-pdv');
-  if (bebidasAlert) {
-    if (bebidasCmd.length) {
-      bebidasAlert.style.display = 'block';
-      bebidasAlert.innerHTML = '<div style="font-size:.72rem;color:var(--azul);font-weight:700;margin-bottom:4px;">🥤 Bebidas pendentes — entregar ao cliente:</div>' +
-        bebidasCmd.map(function(b, bi) {
-          return '<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;">' +
-            '<span style="font-size:.78rem;">' + b.qty + 'x ' + b.name + '</span>' +
-            '<button data-bidx="' + bi + '" onclick="entregarBebidaPDVIdx(this)" ' +
-            'style="background:var(--azul);color:#000;border:none;border-radius:5px;padding:2px 8px;font-size:.7rem;font-weight:700;cursor:pointer;">✅ Entregue</button>' +
-            '</div>';
-        }).join('');
-    } else {
-      bebidasAlert.style.display = 'none';
-    }
-  }
-  // Indicar visualmente quantos itens novos serão enviados
   if (qtdNovos > 0) {
     btnEnv.textContent = '🖨️ Enviar para Cozinha (' + qtdNovos + ' novo' + (qtdNovos > 1 ? 's' : '') + ')';
     btnEnv.style.background = 'linear-gradient(135deg,var(--verde-esc),#00a046)';
@@ -1107,32 +1094,51 @@ function renderCarrinho() {
     btnEnv.textContent = '🖨️ Enviar para Cozinha';
     btnEnv.style.background = '';
   }
-  
+
+  // Lista de itens do carrinho
   const cont = document.getElementById('carr-itens');
   if (!carrinho.length) {
     cont.innerHTML = '<div class="empty-st"><span>🛒</span><p>Adicione itens</p></div>';
-    return;
+  } else {
+    let html = '';
+    for (let i = 0; i < carrinho.length; i++) {
+      const item = carrinho[i];
+      const isBeb = isBebidaPDV(item);
+      const isNovo = item.status_cozinha === 'novo';
+      html += '<div class="carr-item">' +
+        '<div class="ci-nome">' + item.name +
+          (isNovo ? ' <span style="font-size:.6rem;background:var(--verde-esc);color:#000;padding:1px 4px;border-radius:3px;font-weight:700;">NOVO</span>' : '') +
+          (isBeb && !isNovo ? ' <span style="font-size:.6rem;color:var(--azul);">🥤</span>' : '') +
+        '</div>' +
+        '<div class="ci-qtd">' +
+          '<button class="qtd-btn" onclick="updateQty(' + item.item_id + ',-1)">−</button>' +
+          '<span class="qtd-n">' + item.qty + '</span>' +
+          '<button class="qtd-btn" onclick="updateQty(' + item.item_id + ',1)">+</button>' +
+        '</div>' +
+        '<div class="ci-preco">' + R(item.price * item.qty) + '</div>' +
+        '</div>';
+    }
+    cont.innerHTML = html;
   }
 
-  // Mostrar bebidas pendentes desta comanda
-  const cmdId = comandaAtual ? comandaAtual.id : null;
-  const bebidasCmd = cmdId && bebidasPendentesPDV[cmdId] ? bebidasPendentesPDV[cmdId] : [];
-  
-  let html = '';
-  for (let i = 0; i < carrinho.length; i++) {
-    const item = carrinho[i];
-    html += `<div class="carr-item">
-      <div class="ci-nome">${item.name}</div>
-      <div class="ci-qtd">
-        <button class="qtd-btn" onclick="updateQty(${item.item_id},-1)">−</button>
-        <span class="qtd-n">${item.qty}</span>
-        <button class="qtd-btn" onclick="updateQty(${item.item_id},1)">+</button>
-      </div>
-      <div class="ci-preco">${R(item.price * item.qty)}</div>
-    </div>`;
+  // Alerta de bebidas pendentes (após lista de itens)
+  const bebidasAlert = document.getElementById('bebidas-pendentes-pdv');
+  if (bebidasAlert) {
+    if (bebidasCmd.length) {
+      bebidasAlert.style.display = 'block';
+      bebidasAlert.innerHTML =
+        '<div style="font-size:.72rem;color:var(--azul);font-weight:700;margin-bottom:6px;">🥤 BEBIDAS PENDENTES — Aguardando entrega</div>' +
+        bebidasCmd.map(function(b, bi) {
+          return '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(76,201,240,.15);">' +
+            '<span style="font-size:.8rem;">' + b.qty + 'x ' + b.name + '</span>' +
+            '<button data-bidx="' + bi + '" onclick="entregarBebidaPDVIdx(this)" ' +
+            'style="background:var(--azul);color:#000;border:none;border-radius:5px;padding:3px 10px;font-size:.72rem;font-weight:700;cursor:pointer;flex-shrink:0;">✅ Entregue</button>' +
+            '</div>';
+        }).join('');
+    } else {
+      bebidasAlert.style.display = 'none';
+    }
   }
-  
-  cont.innerHTML = html;
 }
 
 // ==================== ENVIAR PARA COZINHA ====================
@@ -1211,11 +1217,20 @@ async function enviarParaCozinha() {
       const itensBebida = itensNovos.filter(i => isBebidaPDV(i));
       const itensComida = itensNovos.filter(i => !isBebidaPDV(i));
 
-      // Bebidas: registrar como pendentes, NÃO imprimir
+      // Bebidas: registrar como pendentes localmente E notificar a cozinha
       if (itensBebida.length) {
         adicionarBebidaPendentePDV(comandaAtual.id, itensBebida);
+        // Inserir na fila da cozinha como BEBIDA_PENDENTE (sem imprimir, só mostrar no card)
+        await db.from('impressoes_cozinha').insert({
+          mesa: mesaAtual.numero,
+          comanda_nome: nomeComanda,
+          conteudo: '',
+          itens: itensBebida.map(i => ({ item_id: i.item_id, name: i.name, price: i.price, qty: i.qty })),
+          observacao: 'BEBIDA_PENDENTE',
+          data_hora: new Date().toISOString()
+        });
         const nomes = itensBebida.map(b => b.qty + 'x ' + b.name).join(', ');
-        toast('🥤 Bebida(s) adicionada(s) — avisar garçom: ' + nomes, 'info');
+        toast('🥤 Bebida(s) pendente(s): ' + nomes);
       }
       // Comida: imprimir normalmente
       if (itensComida.length) {
