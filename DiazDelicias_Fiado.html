@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="theme-color" content="#0a0608">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<link rel="manifest" href="./manifest-fiado.json">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Diaz Fiado">
 <title>Diaz Delicias — Fiado</title>
@@ -307,7 +306,13 @@ async function fazerLogin() {
   const cpfRaw = document.getElementById('login-cpf').value;
   const cpf = cpfRaw.replace(/\D/g,'');
   if (cpf.length !== 11) { toast('CPF inválido','err'); return; }
-  const { data } = await db.from('clientes_fiado').select('*').eq('cpf',cpf).maybeSingle();
+  // Busca por CPF puro (apenas dígitos) ou com máscara (formato xxx.xxx.xxx-xx)
+  const cpfMask = cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+  let { data } = await db.from('clientes_fiado').select('*').eq('cpf',cpf).maybeSingle();
+  if (!data) {
+    const res2 = await db.from('clientes_fiado').select('*').eq('cpf',cpfMask).maybeSingle();
+    data = res2.data;
+  }
   if (!data) { toast('CPF não encontrado — faça o cadastro!','err'); return; }
   // Verificar status ANTES de dar acesso
   if (data.status === 'pendente_aprovacao' || data.status === 'pendente') {
@@ -513,9 +518,21 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw-fiado.js')
     .then(reg => {
       console.log('SW Fiado registrado:', reg.scope);
+      // Forçar atualização do SW se houver nova versão
+      reg.update();
     })
     .catch(e => console.log('SW erro:', e));
 }
+
+// Verificar se já está instalado via display-mode
+window.addEventListener('DOMContentLoaded', () => {
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+    || window.navigator.standalone === true;
+  if (isStandalone) {
+    const btn = document.getElementById('pwa-install-btn');
+    if (btn) btn.classList.add('hidden');
+  }
+});
 </script>
 
 <!-- Botão instalar PWA -->
