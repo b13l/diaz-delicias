@@ -3862,8 +3862,8 @@ function filtrarFiado() {
 function renderListaFiado(lista) {
   const el = document.getElementById('fiado-lista');
   if (!lista.length) { el.innerHTML = '<div class="empty-st"><span class="e-icon">🤝</span>Nenhum cliente encontrado</div>'; return; }
-  const stMap = {ativo:'fc-ativo',pendente:'fc-pendente',inadimplente:'fc-inadimplente',bloqueado:'fc-bloqueado'};
-  const stLabel = {ativo:'✅ Ativo',pendente:'⏳ Pendente',inadimplente:'🔴 Inadimplente',bloqueado:'🔒 Bloqueado'};
+  const stMap = {ativo:'fc-ativo',pendente_aprovacao:'fc-pendente',bloqueado:'fc-bloqueado'};
+  const stLabel = {ativo:'✅ Ativo',pendente_aprovacao:'⏳ Pendente Aprovação',bloqueado:'🔒 Bloqueado'};
   el.innerHTML = lista.map(c => {
     const usado = parseFloat(c.saldo_usado||0), lim = parseFloat(c.limite_max||100);
     const pct = Math.min(100,(usado/lim)*100);
@@ -3899,8 +3899,8 @@ async function abrirDetalheFiado(id) {
   if (!c) return;
   const usado = parseFloat(c.saldo_usado||0), lim = parseFloat(c.limite_max||100), disp = Math.max(0,lim-usado);
   const pct = Math.min(100,(usado/lim)*100), cor = pct>80?'var(--vermelho)':pct>50?'var(--ouro)':'var(--verde)';
-  const stMap = {ativo:'fc-ativo',pendente:'fc-pendente',inadimplente:'fc-inadimplente',bloqueado:'fc-bloqueado'};
-  const stLabel = {ativo:'✅ Ativo',pendente:'⏳ Pendente',inadimplente:'🔴 Inadimplente',bloqueado:'🔒 Bloqueado'};
+  const stMap = {ativo:'fc-ativo',pendente_aprovacao:'fc-pendente',bloqueado:'fc-bloqueado'};
+  const stLabel = {ativo:'✅ Ativo',pendente_aprovacao:'⏳ Pendente Aprovação',bloqueado:'🔒 Bloqueado'};
 
   document.getElementById('fiado-det-header').innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
@@ -3924,10 +3924,30 @@ async function abrirDetalheFiado(id) {
       </div>
     </div>`;
 
-  document.getElementById('fiado-det-btns').innerHTML = `
-    <button onclick="abrirPagamentoFiado(${c.id})" style="background:var(--verde-esc);color:#000;border:none;border-radius:8px;padding:8px 14px;font-size:.8rem;font-weight:700;cursor:pointer;">💰 Registrar Pagamento</button>
-    <button onclick="editarClienteFiado(${c.id})" style="background:var(--azul2);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:.8rem;font-weight:700;cursor:pointer;">✏️ Editar</button>
-    <button onclick="alterarStatusFiado(${c.id})" style="background:var(--card2);color:var(--ouro);border:1px solid var(--ouro);border-radius:8px;padding:8px 14px;font-size:.8rem;font-weight:700;cursor:pointer;">🔄 Status</button>`;
+  // Botões baseados no status do cliente
+  let btnsHtml = '';
+  if (c.status === 'pendente_aprovacao') {
+    // PENDENTE: mostrar botão Aprovar em destaque + Recusar
+    btnsHtml = `
+      <div style="background:rgba(255,183,3,.1);border:1px solid var(--ouro);border-radius:8px;padding:10px;margin-bottom:10px;text-align:center;">
+        <div style="font-size:.78rem;color:var(--ouro);margin-bottom:8px;font-weight:700;">⏳ Aguardando aprovação da cozinha</div>
+        <div style="font-size:.72rem;color:var(--txt2);margin-bottom:10px;">Defina o limite antes de aprovar</div>
+        <div style="display:flex;gap:6px;justify-content:center;align-items:center;margin-bottom:6px;">
+          <input type="number" id="input-limite-aprovacao" class="form-input" placeholder="Limite R$" step="0.01" style="max-width:140px;text-align:center;">
+        </div>
+        <div style="display:flex;gap:8px;justify-content:center;">
+          <button onclick="aprovarClienteFiado('${c.id}')" style="background:var(--verde-esc);color:#000;border:none;border-radius:8px;padding:10px 20px;font-size:.85rem;font-weight:800;cursor:pointer;">✅ Aprovar Cliente</button>
+          <button onclick="recusarClienteFiado('${c.id}')" style="background:rgba(255,71,87,.2);color:var(--vermelho);border:1px solid var(--vermelho);border-radius:8px;padding:10px 16px;font-size:.82rem;font-weight:700;cursor:pointer;">❌ Recusar</button>
+        </div>
+      </div>`;
+  } else {
+    btnsHtml = `
+      <button onclick="abrirPagamentoFiado('${c.id}')" style="background:var(--verde-esc);color:#000;border:none;border-radius:8px;padding:8px 14px;font-size:.8rem;font-weight:700;cursor:pointer;">💰 Registrar Pagamento</button>
+      <button onclick="abrirModalDefinirLimite('${c.id}')" style="background:rgba(255,183,3,.15);color:var(--ouro);border:1px solid var(--ouro);border-radius:8px;padding:8px 14px;font-size:.8rem;font-weight:700;cursor:pointer;">💳 Definir Limite</button>
+      <button onclick="editarClienteFiado('${c.id}')" style="background:var(--azul2);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:.8rem;font-weight:700;cursor:pointer;">✏️ Editar</button>
+      <button onclick="alterarStatusFiado('${c.id}')" style="background:var(--card2);color:var(--txt2);border:1px solid var(--borda);border-radius:8px;padding:8px 14px;font-size:.8rem;font-weight:700;cursor:pointer;">🔄 Status</button>`;
+  }
+  document.getElementById('fiado-det-btns').innerHTML = btnsHtml;
 
   // Buscar transações
   const { data: trans } = await db.from('fiado_transacoes')
@@ -4049,11 +4069,53 @@ async function confirmarPagamentoFiado() {
   toast('✅ Pagamento de ' + R(valor) + ' registrado!');
 }
 
+async // ===== APROVAR / RECUSAR / DEFINIR LIMITE =====
+async function aprovarClienteFiado(id) {
+  const limiteInput = document.getElementById('input-limite-aprovacao');
+  const limite = parseFloat(limiteInput ? limiteInput.value : 0);
+  if (!limite || limite <= 0) {
+    toast('Defina o limite máximo antes de aprovar', 'err');
+    limiteInput && limiteInput.focus();
+    return;
+  }
+  if (!confirm('Aprovar ' + (fiadoClientes.find(x=>x.id==id)||{}).nome + ' com limite de ' + R(limite) + '?')) return;
+  await db.from('clientes_fiado').update({ status: 'ativo', limite_max: limite }).eq('id', id);
+  fecharModal('modal-fiado-detalhe');
+  toast('✅ Cliente aprovado com limite de ' + R(limite) + '!');
+  carregarClientesFiado();
+}
+
+async function recusarClienteFiado(id) {
+  const c = fiadoClientes.find(x => x.id == id);
+  if (!confirm('Recusar cadastro de ' + (c ? c.nome : 'cliente') + '? Ele será marcado como bloqueado.')) return;
+  await db.from('clientes_fiado').update({ status: 'bloqueado' }).eq('id', id);
+  fecharModal('modal-fiado-detalhe');
+  toast('❌ Cadastro recusado');
+  carregarClientesFiado();
+}
+
+function abrirModalDefinirLimite(id) {
+  const c = fiadoClientes.find(x => x.id == id);
+  if (!c) return;
+    const novoLimite = prompt('Novo limite para ' + c.nome + ' (atual: ' + R(c.limite_max) + ') — Valor R$:');
+  if (novoLimite === null) return;
+  const val = parseFloat(novoLimite);
+  if (isNaN(val) || val < 0) { toast('Valor inválido', 'err'); return; }
+  definirLimiteFiado(id, val);
+}
+
+async function definirLimiteFiado(id, novoLimite) {
+  await db.from('clientes_fiado').update({ limite_max: novoLimite }).eq('id', id);
+  fecharModal('modal-fiado-detalhe');
+  toast('✅ Limite atualizado para ' + R(novoLimite));
+  carregarClientesFiado();
+}
+
 async function alterarStatusFiado(id) {
   const c = fiadoClientes.find(x => x.id === id);
   if (!c) return;
-  const opcoes = ['ativo','pendente','inadimplente','bloqueado'];
-  const labels = ['✅ Ativo','⏳ Pendente','🔴 Inadimplente','🔒 Bloqueado'];
+  const opcoes = ['ativo','pendente_aprovacao','bloqueado'];
+  const labels = ['✅ Ativo','⏳ Pendente Aprovação','🔒 Bloqueado'];
   const idx = opcoes.indexOf(c.status);
   const novoIdx = (idx + 1) % opcoes.length;
   const novoStatus = opcoes[novoIdx];
