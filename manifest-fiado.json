@@ -22,12 +22,5 @@
       "type": "image/jpeg",
       "purpose": "any maskable"
     }
-  ],
-  "display_override": [
-    "window-controls-overlay",
-    "standalone",
-    "minimal-ui"
-  ],
-  "id": "/diaz-delicias/DiazDelicias_Fiado.html",
-  "prefer_related_applications": false
+  ]
 }
