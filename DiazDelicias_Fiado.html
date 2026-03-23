@@ -341,7 +341,7 @@ async function mostrarConta() {
   badge.textContent = stLabel[clienteLogado.status]||clienteLogado.status;
 
   const usado = parseFloat(clienteLogado.saldo_usado)||0;
-  const limite = parseFloat(clienteLogado.limite_maximo)||100;
+  const limite = parseFloat(clienteLogado.limite_max)||0;
   const pct = Math.min(100,(usado/limite)*100);
   document.getElementById('conta-saldo-txt').textContent = R(usado)+' / '+R(limite);
   const bar = document.getElementById('conta-prog-bar');
@@ -362,15 +362,15 @@ async function mostrarConta() {
     '<div style="margin-bottom:4px;">💳 Forma: <strong>'+clienteLogado.forma_pagamento+'</strong></div>'+
     '<div>🔄 Periodicidade: <strong>'+clienteLogado.periodicidade.charAt(0).toUpperCase()+clienteLogado.periodicidade.slice(1)+'</strong></div>';
 
-  const { data: movs } = await db.from('fiado_movimentacoes')
+  const { data: movs } = await db.from('fiado_transacoes')
     .select('*').eq('cliente_id',clienteLogado.id)
-    .order('data_hora',{ascending:false}).limit(15);
+    .order('data_transacao',{ascending:false}).limit(15);
   const ext = document.getElementById('conta-extrato');
   if (!movs||!movs.length) {
     ext.innerHTML = '<div style="text-align:center;color:var(--txt3);padding:16px;font-size:.82rem;">Nenhuma movimentação ainda</div>';
   } else {
     ext.innerHTML = movs.map(m => {
-      const d = new Date(m.data_hora).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+      const d = new Date(m.data_transacao).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
       const isC = m.tipo==='consumo';
       return '<div class="mov-row">'+
         '<div>'+
@@ -403,25 +403,17 @@ function toast(msg,tipo='ok') {
 document.addEventListener('DOMContentLoaded', init);
 
 
+// ==================== PWA INSTALAÇÃO ====================
 let deferredPrompt = null;
 
+// Chrome/Android: capturar evento de instalação nativa
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredPrompt = e;
-  // Chrome detectou que pode instalar: mostrar botão
-  const btn = document.getElementById('pwa-install-btn');
-  if (btn) btn.classList.remove('hidden');
+  mostrarBtnInstalar();
 });
 
-// Celular Android/iOS: mostrar botão sempre
-document.addEventListener('DOMContentLoaded', () => {
-  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  if (isMobile) {
-    const btn = document.getElementById('pwa-install-btn');
-    if (btn) btn.classList.remove('hidden');
-  }
-});
-
+// Detectar quando app já está instalado
 window.addEventListener('appinstalled', () => {
   deferredPrompt = null;
   const btn = document.getElementById('pwa-install-btn');
@@ -429,20 +421,21 @@ window.addEventListener('appinstalled', () => {
   toast('✅ App instalado com sucesso!');
 });
 
-async function instalarPWA() {
-  // Se Chrome detectou que pode instalar, usar prompt nativo
-  if (deferredPrompt) {
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    deferredPrompt = null;
-    if (outcome === 'accepted') {
-      document.getElementById('pwa-install-btn').classList.add('hidden');
-      toast('✅ Instalando app...');
-    }
-    return;
-  }
+// Mostrar botão instalar em mobile (mesmo sem evento nativo)
+document.addEventListener('DOMContentLoaded', () => {
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const jaInstalado = window.matchMedia('(display-mode: standalone)').matches
+    || window.navigator.standalone === true;
+  if (isMobile && !jaInstalado) mostrarBtnInstalar();
+});
 
-  // Verificar se já está instalado (modo standalone)
+function mostrarBtnInstalar() {
+  const btn = document.getElementById('pwa-install-btn');
+  if (btn) btn.classList.remove('hidden');
+}
+
+async function instalarPWA() {
+  // Se já está instalado, esconder botão
   const jaInstalado = window.matchMedia('(display-mode: standalone)').matches
     || window.navigator.standalone === true;
   if (jaInstalado) {
@@ -451,51 +444,68 @@ async function instalarPWA() {
     return;
   }
 
-  // iOS
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  // Android Chrome com evento nativo disponível → instala direto!
+  if (deferredPrompt) {
+    try {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      deferredPrompt = null;
+      if (outcome === 'accepted') {
+        document.getElementById('pwa-install-btn').classList.add('hidden');
+        toast('✅ Instalando app...');
+      }
+    } catch(e) {
+      deferredPrompt = null;
+      mostrarModalAndroid();
+    }
+    return;
+  }
+
+  // iOS Safari
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
   if (isIOS) {
     mostrarModalPWA(
       '📱 Instalar no iPhone/iPad',
-      '1️⃣ Toque no ícone <strong>compartilhar</strong> (□ com seta ↑) na barra inferior do Safari<br><br>' +
-      '2️⃣ Role e toque em <strong>"Adicionar à Tela de Início"</strong><br><br>' +
-      '3️⃣ Toque em <strong>"Adicionar"</strong>'
+      '1️⃣ Toque no ícone <strong>compartilhar</strong> <span style="font-size:1.1em;">⬆️</span> na barra inferior do Safari<br><br>' +
+      '2️⃣ Role para baixo e toque em <strong>"Adicionar à Tela de Início"</strong><br><br>' +
+      '3️⃣ Toque em <strong>"Adicionar"</strong> no canto superior direito'
     );
     return;
   }
 
-  // Android Chrome
-  const isAndroid = /Android/.test(navigator.userAgent);
-  if (isAndroid) {
-    mostrarModalPWA(
-      '📲 Instalar no Android',
-      '1️⃣ Toque nos <strong>3 pontos ⋮</strong> no canto superior direito do Chrome<br><br>' +
-      '2️⃣ Toque em <strong>"Adicionar à tela inicial"</strong> ou <strong>"Instalar app"</strong><br><br>' +
-      '3️⃣ Confirme tocando em <strong>"Adicionar"</strong>'
-    );
-    return;
-  }
+  // Android Chrome sem evento nativo (pode ser que o chrome bloqueou)
+  mostrarModalAndroid();
+}
 
-  toast('Abra no celular Android para instalar 📱', 'info');
+function mostrarModalAndroid() {
+  mostrarModalPWA(
+    '📲 Instalar no Android',
+    '<strong style="color:var(--rosa);">Opção 1 — Menu do Chrome:</strong><br>' +
+    '1️⃣ Toque nos <strong>3 pontos ⋮</strong> no canto superior direito<br>' +
+    '2️⃣ Toque em <strong>"Adicionar à tela inicial"</strong> ou <strong>"Instalar app"</strong><br>' +
+    '3️⃣ Confirme tocando em <strong>"Adicionar"</strong><br><br>' +
+    '<strong style="color:var(--ouro);">💡 Dica:</strong> Se não aparecer a opção, role a página para cima e aguarde alguns segundos.'
+  );
 }
 
 function mostrarModalPWA(titulo, instrucoes) {
   const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
-  overlay.innerHTML = `
-    <div style="background:#1a1117;border:1px solid var(--rosa);border-radius:16px;padding:24px;max-width:340px;width:100%;text-align:center;">
-      <div style="font-size:1.1rem;font-weight:800;color:var(--rosa);margin-bottom:14px;">${titulo}</div>
-      <div style="font-size:.86rem;color:#ddd;line-height:1.7;text-align:left;margin-bottom:18px;">${instrucoes}</div>
-      <button onclick="this.closest('div[style]').remove()" style="background:linear-gradient(135deg,var(--rosa),var(--rosa-esc));color:#fff;border:none;padding:11px 28px;border-radius:8px;font-weight:700;font-size:.9rem;cursor:pointer;width:100%;">Entendi ✓</button>
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
+  overlay.innerHTML = \`
+    <div style="background:#1a1117;border:2px solid var(--rosa);border-radius:18px;padding:24px;max-width:340px;width:100%;box-shadow:0 0 40px rgba(247,37,133,.3);">
+      <div style="font-size:1.1rem;font-weight:800;color:var(--rosa);margin-bottom:14px;text-align:center;">\${titulo}</div>
+      <div style="font-size:.86rem;color:#ddd;line-height:1.9;margin-bottom:20px;">\${instrucoes}</div>
+      <button onclick="this.closest('[style*=fixed]').remove()" style="background:linear-gradient(135deg,var(--rosa),var(--rosa-esc));color:#fff;border:none;padding:13px 28px;border-radius:10px;font-weight:800;font-size:.95rem;cursor:pointer;width:100%;">Entendi ✓</button>
     </div>
-  `;
+  \`;
   document.body.appendChild(overlay);
 }
 
-// Registrar Service Worker para PWA funcionar
+// Registrar Service Worker para PWA funcionar offline
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js')
+  navigator.serviceWorker.register('./sw-fiado.js')
     .then(() => console.log('SW Fiado registrado'))
-    .catch(e => console.log('SW:', e));
+    .catch(e => console.log('SW erro:', e));
 }
 </script>
 
