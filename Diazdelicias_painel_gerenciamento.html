@@ -3869,7 +3869,7 @@ function renderListaFiado(lista) {
     const pct = Math.min(100,(usado/lim)*100);
     const cor = pct>80?'var(--vermelho)':pct>50?'var(--ouro)':'var(--verde)';
     const disp = Math.max(0, lim - usado);
-    return `<div class="fc-card" onclick="abrirDetalheFiado(${c.id})">
+    return `<div class="fc-card" onclick="abrirDetalheFiado('${c.id}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
         <div>
           <div style="font-weight:700;font-size:.9rem;">${c.nome}</div>
@@ -3895,7 +3895,7 @@ function renderListaFiado(lista) {
 
 async function abrirDetalheFiado(id) {
   fiadoDetalheId = id;
-  const c = fiadoClientes.find(x => x.id === id);
+  const c = fiadoClientes.find(x => String(x.id) === String(id));
   if (!c) return;
   const usado = parseFloat(c.saldo_usado||0), lim = parseFloat(c.limite_max||100), disp = Math.max(0,lim-usado);
   const pct = Math.min(100,(usado/lim)*100), cor = pct>80?'var(--vermelho)':pct>50?'var(--ouro)':'var(--verde)';
@@ -3985,7 +3985,7 @@ function abrirModalNovoFiado() {
 }
 
 function editarClienteFiado(id) {
-  const c = fiadoClientes.find(x => x.id === id);
+  const c = fiadoClientes.find(x => String(x.id) === String(id));
   if (!c) return;
   document.getElementById('fc-id').value = c.id;
   document.getElementById('fc-nome').value = c.nome;
@@ -4046,7 +4046,7 @@ async function confirmarPagamentoFiado() {
   const obs = document.getElementById('pgto-obs').value.trim();
   if (!valor || valor <= 0) { toast('Digite o valor recebido', 'err'); return; }
 
-  const c = fiadoClientes.find(x => x.id === id);
+  const c = fiadoClientes.find(x => String(x.id) === String(id));
   if (!c) return;
   const novoSaldo = Math.max(0, parseFloat(c.saldo_usado||0) - valor);
 
@@ -4078,24 +4078,24 @@ async function aprovarClienteFiado(id) {
     limiteInput && limiteInput.focus();
     return;
   }
-  if (!confirm('Aprovar ' + (fiadoClientes.find(x=>x.id==id)||{}).nome + ' com limite de ' + R(limite) + '?')) return;
-  await db.from('clientes_fiado').update({ status: 'ativo', limite_max: limite }).eq('id', id);
+  if (!confirm('Aprovar ' + (fiadoClientes.find(x=>String(x.id)==String(id))||{}).nome + ' com limite de ' + R(limite) + '?')) return;
+  await db.from('clientes_fiado').update({ status: 'ativo', limite_max: limite }).eq('id', String(id));
   fecharModal('modal-fiado-detalhe');
   toast('✅ Cliente aprovado com limite de ' + R(limite) + '!');
   carregarClientesFiado();
 }
 
 async function recusarClienteFiado(id) {
-  const c = fiadoClientes.find(x => x.id == id);
+  const c = fiadoClientes.find(x => String(x.id) == id);
   if (!confirm('Recusar cadastro de ' + (c ? c.nome : 'cliente') + '? Ele será marcado como bloqueado.')) return;
-  await db.from('clientes_fiado').update({ status: 'bloqueado' }).eq('id', id);
+  await db.from('clientes_fiado').update({ status: 'bloqueado' }).eq('id', String(id));
   fecharModal('modal-fiado-detalhe');
   toast('❌ Cadastro recusado');
   carregarClientesFiado();
 }
 
 function abrirModalDefinirLimite(id) {
-  const c = fiadoClientes.find(x => x.id == id);
+  const c = fiadoClientes.find(x => String(x.id) == id);
   if (!c) return;
     const novoLimite = prompt('Novo limite para ' + c.nome + ' (atual: ' + R(c.limite_max) + ') — Valor R$:');
   if (novoLimite === null) return;
@@ -4105,14 +4105,14 @@ function abrirModalDefinirLimite(id) {
 }
 
 async function definirLimiteFiado(id, novoLimite) {
-  await db.from('clientes_fiado').update({ limite_max: novoLimite }).eq('id', id);
+  await db.from('clientes_fiado').update({ limite_max: novoLimite }).eq('id', String(id));
   fecharModal('modal-fiado-detalhe');
   toast('✅ Limite atualizado para ' + R(novoLimite));
   carregarClientesFiado();
 }
 
 async function alterarStatusFiado(id) {
-  const c = fiadoClientes.find(x => x.id === id);
+  const c = fiadoClientes.find(x => String(x.id) === String(id));
   if (!c) return;
   const opcoes = ['ativo','pendente_aprovacao','bloqueado'];
   const labels = ['✅ Ativo','⏳ Pendente Aprovação','🔒 Bloqueado'];
@@ -4120,7 +4120,7 @@ async function alterarStatusFiado(id) {
   const novoIdx = (idx + 1) % opcoes.length;
   const novoStatus = opcoes[novoIdx];
   if (!confirm('Alterar status para ' + labels[novoIdx] + '?')) return;
-  await db.from('clientes_fiado').update({ status: novoStatus }).eq('id', id);
+  await db.from('clientes_fiado').update({ status: novoStatus }).eq('id', String(id));
   carregarClientesFiado();
   fecharModal('modal-fiado-detalhe');
   toast('Status alterado para ' + labels[novoIdx]);
@@ -4145,7 +4145,7 @@ function exportarFiado() {
 
 // Registrar consumo fiado a partir de pedido fechado
 async function registrarConsumoFiado(clienteId, valor, descricao, pedidoId, mesa) {
-  const c = fiadoClientes.find(x => x.id === clienteId) ||
+  const c = fiadoClientes.find(x => String(x.id) === String(clienteId)) ||
     (await db.from('clientes_fiado').select('*').eq('id', clienteId).single()).data;
   if (!c) return false;
 
