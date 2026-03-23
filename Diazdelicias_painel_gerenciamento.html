@@ -4069,7 +4069,7 @@ async function confirmarPagamentoFiado() {
   toast('✅ Pagamento de ' + R(valor) + ' registrado!');
 }
 
-async // ===== APROVAR / RECUSAR / DEFINIR LIMITE =====
+// ===== APROVAR / RECUSAR / DEFINIR LIMITE =====
 async function aprovarClienteFiado(id) {
   const limiteInput = document.getElementById('input-limite-aprovacao');
   const limite = parseFloat(limiteInput ? limiteInput.value : 0);
