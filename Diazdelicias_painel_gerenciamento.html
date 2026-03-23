@@ -1754,7 +1754,7 @@ function pedCardHTML(p) {
       bebidasPendentes[p.id].map(b => 
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">' +
         '<span style="font-size:.78rem;">' + b.qty + 'x ' + b.name + '</span>' +
-        '<button onclick="entregarBebida(' + p.id + ',\'' + b.name.replace(/'/g,"\\'\")") + '\')" style="background:var(--azul);color:#000;border:none;border-radius:5px;padding:2px 8px;font-size:.72rem;font-weight:700;cursor:pointer;">✅ Entregue</button>' +
+        '<button onclick="entregarBebida(' + p.id + ', this.dataset.nome)" data-nome="' + b.name.replace(/"/g,'&quot;') + '" style="background:var(--azul);color:#000;border:none;border-radius:5px;padding:2px 8px;font-size:.72rem;font-weight:700;cursor:pointer;">✅ Entregue</button>' +
         '</div>'
       ).join('') +
       '</div>' : '') +
@@ -2485,7 +2485,7 @@ function renderCardapioDiaCozinha() {
           ${p.descricao ? '<div style="font-size:.68rem;color:var(--txt2);">' + p.descricao + '</div>' : ''}
         </div>
         <div style="font-size:.85rem;color:var(--verde);font-weight:700;white-space:nowrap;">${R(p.preco)}</div>
-        <button onclick="addItemCozinha(${p.id}, '${p.nome.replace(/'/g, "\'")}", ${p.preco})"
+        <button onclick="addItemCozinha(${p.id}, this.dataset.nome, ${p.preco})" data-nome="${p.nome}"
           style="background:var(--verde-esc);color:#000;border:none;border-radius:6px;padding:6px 12px;font-size:.78rem;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0;">
           + Adicionar
         </button>
@@ -2545,7 +2545,7 @@ function renderProdutosCozinha(filtro = '') {
             <div style="font-size:.68rem;color:var(--txt2);">${p.categoria}</div>
           </div>
           <div style="font-size:.82rem;color:var(--verde);font-weight:700;white-space:nowrap;">${R(p.preco)}</div>
-          <button onclick="addItemCozinha(${p.id}, '${p.nome.replace(/'/g, "\'")}', ${p.preco})"
+          <button onclick="addItemCozinha(${p.id}, this.dataset.nome, ${p.preco})" data-nome="${p.nome}"
             style="background:var(--verde-esc);color:#000;border:none;border-radius:6px;padding:5px 10px;font-size:.78rem;font-weight:700;cursor:pointer;white-space:nowrap;">
             + Adicionar
           </button>
@@ -3303,7 +3303,7 @@ function renderViagemCardapioDia() {
           ${p.descricao ? '<div style="font-size:.68rem;color:var(--txt2);">' + p.descricao + '</div>' : ''}
         </div>
         <div style="font-size:.85rem;color:var(--verde);font-weight:700;white-space:nowrap;">${R(p.preco)}</div>
-        <button onclick="addItemViagem(${p.id},'${p.nome.replace(/'/g,"\'")}',${p.preco})"
+        <button onclick="addItemViagem(${p.id}, this.dataset.nome, ${p.preco})" data-nome="${p.nome}"
           style="background:var(--verde-esc);color:#000;border:none;border-radius:6px;padding:6px 12px;font-size:.78rem;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0;">
           + Adicionar
         </button>
@@ -3337,7 +3337,7 @@ function renderViagemProdutos(filtro = '') {
           ${p.descricao ? '<div style="font-size:.68rem;color:var(--txt2);">' + p.descricao + '</div>' : ''}
         </div>
         <div style="font-size:.84rem;color:var(--verde);font-weight:700;white-space:nowrap;">${R(p.preco)}</div>
-        <button onclick="addItemViagem(${p.id},'${p.nome.replace(/'/g,"\'")}',${p.preco})"
+        <button onclick="addItemViagem(${p.id}, this.dataset.nome, ${p.preco})" data-nome="${p.nome}"
           style="background:var(--verde-esc);color:#000;border:none;border-radius:6px;padding:6px 12px;font-size:.78rem;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0;">
           + Adicionar
         </button>
@@ -3827,6 +3827,12 @@ function verificarPinFiado() {
   }
 }
 
+async function buscarClienteFiadoPorNome(nome) {
+  if (!nome || !fiadoClientes.length) return null;
+  const n = nome.toLowerCase().trim();
+  return fiadoClientes.find(c => c.nome && c.nome.toLowerCase().trim() === n) || null;
+}
+
 async function carregarClientesFiado() {
   const { data } = await db.from('clientes_fiado').select('*').order('nome');
   fiadoClientes = data || [];
@@ -4009,7 +4015,8 @@ function editarClienteFiado(id) {
 async function salvarClienteFiado() {
   const id = document.getElementById('fc-id').value;
   const nome = document.getElementById('fc-nome').value.trim();
-  const cpf = document.getElementById('fc-cpf').value.trim();
+  const cpfRaw = document.getElementById('fc-cpf').value.trim();
+  const cpf = cpfRaw.replace(/\D/g, '');
   const whats = document.getElementById('fc-whats').value.trim();
   const limite = parseFloat(document.getElementById('fc-limite').value);
   if (!nome || !cpf || !whats || !limite) { toast('Preencha todos os campos obrigatórios', 'err'); return; }
