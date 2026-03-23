@@ -403,91 +403,92 @@ function toast(msg,tipo='ok') {
 document.addEventListener('DOMContentLoaded', init);
 
 
-// ===== PWA INSTALL =====
 let deferredPrompt = null;
 
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredPrompt = e;
-  mostrarBotaoPWA();
+  // Chrome detectou que pode instalar: mostrar botão
+  const btn = document.getElementById('pwa-install-btn');
+  if (btn) btn.classList.remove('hidden');
+});
+
+// Celular Android/iOS: mostrar botão sempre
+document.addEventListener('DOMContentLoaded', () => {
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (isMobile) {
+    const btn = document.getElementById('pwa-install-btn');
+    if (btn) btn.classList.remove('hidden');
+  }
 });
 
 window.addEventListener('appinstalled', () => {
   deferredPrompt = null;
-  esconderBotaoPWA();
+  const btn = document.getElementById('pwa-install-btn');
+  if (btn) btn.classList.add('hidden');
   toast('✅ App instalado com sucesso!');
 });
 
-function mostrarBotaoPWA() {
-  const jaInstalado = window.matchMedia('(display-mode: standalone)').matches
-    || window.navigator.standalone === true;
-  if (jaInstalado) return;
-  const btn = document.getElementById('pwa-install-btn');
-  if (btn) btn.classList.remove('hidden');
-}
-
-function esconderBotaoPWA() {
-  const btn = document.getElementById('pwa-install-btn');
-  if (btn) btn.classList.add('hidden');
-}
-
-// Mostrar botão assim que carregar (se não estiver instalado)
-window.addEventListener('load', () => {
-  const jaInstalado = window.matchMedia('(display-mode: standalone)').matches
-    || window.navigator.standalone === true;
-  if (!jaInstalado) mostrarBotaoPWA();
-  else esconderBotaoPWA();
-});
-
 async function instalarPWA() {
-  // ✅ Caso ideal: Chrome detectou que pode instalar — prompt nativo direto
+  // Se Chrome detectou que pode instalar, usar prompt nativo
   if (deferredPrompt) {
-    try {
-      await deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      deferredPrompt = null;
-      if (outcome === 'accepted') {
-        esconderBotaoPWA();
-        toast('✅ Instalando...');
-      }
-    } catch(e) { deferredPrompt = null; }
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    if (outcome === 'accepted') {
+      document.getElementById('pwa-install-btn').classList.add('hidden');
+      toast('✅ Instalando app...');
+    }
     return;
   }
 
-  // Já instalado
+  // Verificar se já está instalado (modo standalone)
   const jaInstalado = window.matchMedia('(display-mode: standalone)').matches
     || window.navigator.standalone === true;
   if (jaInstalado) {
-    toast('✅ App já instalado!');
-    esconderBotaoPWA();
+    toast('✅ App já está instalado!');
+    document.getElementById('pwa-install-btn').classList.add('hidden');
     return;
   }
 
-  // iOS Safari — só aceita via menu compartilhar
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  // iOS
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
   if (isIOS) {
-    mostrarModalPWA('📱 Instalar no iPhone/iPad',
-      '1️⃣ Toque no ícone <b>Compartilhar</b> (□↑) na barra do Safari<br><br>' +
-      '2️⃣ Role e toque em <b>"Adicionar à Tela de Início"</b><br><br>' +
-      '3️⃣ Toque em <b>"Adicionar"</b>');
+    mostrarModalPWA(
+      '📱 Instalar no iPhone/iPad',
+      '1️⃣ Toque no ícone <strong>compartilhar</strong> (□ com seta ↑) na barra inferior do Safari<br><br>' +
+      '2️⃣ Role e toque em <strong>"Adicionar à Tela de Início"</strong><br><br>' +
+      '3️⃣ Toque em <strong>"Adicionar"</strong>'
+    );
     return;
   }
 
-  // Android/Desktop: Chrome ainda não detectou critérios de instalação
-  // Tentar forçar via getInstalledRelatedApps ou orientar o usuário
+  // Android Chrome
   const isAndroid = /Android/.test(navigator.userAgent);
-  mostrarModalPWA(
-    isAndroid ? '📲 Instalar no Android' : '💻 Instalar no computador',
-    (isAndroid
-      ? '1️⃣ Toque nos <b>3 pontos ⋮</b> no canto superior direito<br><br>' +
-        '2️⃣ Toque em <b>"Adicionar à tela inicial"</b> ou <b>"Instalar app"</b><br><br>' +
-        '3️⃣ Confirme tocando em <b>"Instalar"</b><br><br>' +
-        '<small style="color:#aaa;">💡 Se não aparecer essa opção, recarregue a página e tente novamente.</small>'
-      : '1️⃣ Clique no ícone <b>⊕</b> que aparece na barra de endereço do Chrome<br><br>' +
-        '2️⃣ Clique em <b>"Instalar"</b><br><br>' +
-        '<small style="color:#aaa;">💡 Se não aparecer o ícone, acesse pelo celular para melhor experiência.</small>'
-    )
-  );
+  if (isAndroid) {
+    mostrarModalPWA(
+      '📲 Instalar no Android',
+      '1️⃣ Toque nos <strong>3 pontos ⋮</strong> no canto superior direito do Chrome<br><br>' +
+      '2️⃣ Toque em <strong>"Adicionar à tela inicial"</strong> ou <strong>"Instalar app"</strong><br><br>' +
+      '3️⃣ Confirme tocando em <strong>"Adicionar"</strong>'
+    );
+    return;
+  }
+
+  toast('Abra no celular Android para instalar 📱', 'info');
+}
+
+function mostrarModalPWA(titulo, instrucoes) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
+  overlay.innerHTML = `
+    <div style="background:#1a1117;border:1px solid var(--rosa);border-radius:16px;padding:24px;max-width:340px;width:100%;text-align:center;">
+      <div style="font-size:1.1rem;font-weight:800;color:var(--rosa);margin-bottom:14px;">${titulo}</div>
+      <div style="font-size:.86rem;color:#ddd;line-height:1.7;text-align:left;margin-bottom:18px;">${instrucoes}</div>
+      <button onclick="this.closest('div[style]').remove()" style="background:linear-gradient(135deg,var(--rosa),var(--rosa-esc));color:#fff;border:none;padding:11px 28px;border-radius:8px;font-weight:700;font-size:.9rem;cursor:pointer;width:100%;">Entendi ✓</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
 }
 
 // Registrar Service Worker para PWA funcionar
