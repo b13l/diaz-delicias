@@ -972,14 +972,16 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;min-
 <!-- MODAL DETALHE CLIENTE -->
 <div class="modal-ov" id="modal-fiado-detalhe">
   <div class="modal-box" style="max-width:600px;max-height:90vh;display:flex;flex-direction:column;">
+    <div class="modal-titulo" style="flex-shrink:0;margin-bottom:10px;">🤝 Detalhes do Cliente</div>
     <div id="fiado-det-header" style="flex-shrink:0;"></div>
     <div style="flex:1;overflow-y:auto;min-height:0;">
       <div id="fiado-det-saldo" style="margin-bottom:12px;"></div>
-      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;" id="fiado-det-btns"></div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center;" id="fiado-det-btns"></div>
       <div id="fiado-det-trans"></div>
     </div>
-    <div class="modal-actions" style="flex-shrink:0;padding-top:10px;">
-      <button class="btn-sec" onclick="fecharModal('modal-fiado-detalhe')">Fechar</button>
+    <div class="modal-actions" style="flex-shrink:0;padding-top:10px;display:flex;gap:8px;">
+      <button style="background:rgba(255,23,68,.15);color:var(--vermelho);border:1px solid var(--vermelho);border-radius:8px;padding:9px 16px;font-size:.8rem;font-weight:700;cursor:pointer;" onclick="excluirClienteFiado(fiadoDetalheId)">🗑️ Excluir</button>
+      <button class="btn-sec" style="flex:1;" onclick="fecharModal('modal-fiado-detalhe')">Fechar</button>
     </div>
   </div>
 </div>
@@ -3704,7 +3706,7 @@ function renderContas() {
       <td style="text-align:center;">${c.forma_pg || '—'}</td>
       <td style="text-align:center;"><span class="conta-status ${stCls}">${c.status}</span></td>
       <td style="text-align:center;white-space:nowrap;">
-        <button onclick="editarConta('${c.id}')" style="background:var(--azul2);color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:.72rem;margin-right:3px;">✏️</button>
+        <button onclick="editarConta('${c.id}')" style="background:rgba(0,191,255,.25);color:#fff;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:.72rem;margin-right:3px;">✏️</button>
         <button onclick="deletarConta('${c.id}')" style="background:rgba(255,71,87,.2);color:var(--vermelho);border:1px solid var(--vermelho);border-radius:5px;padding:3px 8px;cursor:pointer;font-size:.72rem;">🗑️</button>
       </td>
     </tr>`;
@@ -3944,7 +3946,7 @@ async function abrirDetalheFiado(id) {
     btnsHtml = `
       <button onclick="abrirPagamentoFiado('${c.id}')" style="background:var(--verde-esc);color:#000;border:none;border-radius:8px;padding:8px 14px;font-size:.8rem;font-weight:700;cursor:pointer;">💰 Registrar Pagamento</button>
       <button onclick="abrirModalDefinirLimite('${c.id}')" style="background:rgba(255,183,3,.15);color:var(--ouro);border:1px solid var(--ouro);border-radius:8px;padding:8px 14px;font-size:.8rem;font-weight:700;cursor:pointer;">💳 Definir Limite</button>
-      <button onclick="editarClienteFiado('${c.id}')" style="background:var(--azul2);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:.8rem;font-weight:700;cursor:pointer;">✏️ Editar</button>
+      <button onclick="editarClienteFiado('${c.id}')" style="background:rgba(0,191,255,.25);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:.8rem;font-weight:700;cursor:pointer;">✏️ Editar</button>
       <button onclick="alterarStatusFiado('${c.id}')" style="background:var(--card2);color:var(--txt2);border:1px solid var(--borda);border-radius:8px;padding:8px 14px;font-size:.8rem;font-weight:700;cursor:pointer;">🔄 Status</button>`;
   }
   document.getElementById('fiado-det-btns').innerHTML = btnsHtml;
@@ -4126,6 +4128,18 @@ async function alterarStatusFiado(id) {
   toast('Status alterado para ' + labels[novoIdx]);
 }
 
+
+async function excluirClienteFiado(id) {
+  const c = fiadoClientes.find(x => String(x.id) === String(id));
+  if (!c) return;
+  if (!confirm("⚠️ Excluir o cliente \"" + c.nome + "\"?\n\nTodo o histórico de transações será removido. Esta ação não pode ser desfeita.")) return;
+  await db.from("fiado_transacoes").delete().eq("cliente_id", String(id));
+  const { error } = await db.from("clientes_fiado").delete().eq("id", String(id));
+  if (error) { toast("Erro ao excluir: " + error.message, "err"); return; }
+  fecharModal("modal-fiado-detalhe");
+  carregarClientesFiado();
+  toast("🗑️ Cliente removido com sucesso");
+}
 function exportarFiado() {
   if (!fiadoClientes.length) { toast('Nenhum cliente para exportar', 'err'); return; }
   const cols = ['Nome','CPF','WhatsApp','Periodicidade','Vencimento','Forma PG','Limite','Usado','Disponível','Status'];
