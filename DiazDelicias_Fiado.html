@@ -406,14 +406,14 @@ document.addEventListener('DOMContentLoaded', init);
 // ==================== PWA INSTALAÇÃO ====================
 let deferredPrompt = null;
 
-// Chrome/Android: capturar evento de instalação nativa
+// Capturar evento nativo do Chrome
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredPrompt = e;
   mostrarBtnInstalar();
+  console.log('PWA: beforeinstallprompt capturado!');
 });
 
-// Detectar quando app já está instalado
 window.addEventListener('appinstalled', () => {
   deferredPrompt = null;
   const btn = document.getElementById('pwa-install-btn');
@@ -421,12 +421,19 @@ window.addEventListener('appinstalled', () => {
   toast('✅ App instalado com sucesso!');
 });
 
-// Mostrar botão instalar em mobile (mesmo sem evento nativo)
+// Mostrar botão sempre em mobile (independente do evento)
 document.addEventListener('DOMContentLoaded', () => {
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  const jaInstalado = window.matchMedia('(display-mode: standalone)').matches
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches
     || window.navigator.standalone === true;
-  if (isMobile && !jaInstalado) mostrarBtnInstalar();
+  if (isMobile && !isStandalone) {
+    mostrarBtnInstalar();
+  }
+  if (isStandalone) {
+    // Já instalado - esconder botão
+    const btn = document.getElementById('pwa-install-btn');
+    if (btn) btn.classList.add('hidden');
+  }
 });
 
 function mostrarBtnInstalar() {
@@ -435,56 +442,56 @@ function mostrarBtnInstalar() {
 }
 
 async function instalarPWA() {
-  // Se já está instalado, esconder botão
-  const jaInstalado = window.matchMedia('(display-mode: standalone)').matches
+  // Já instalado?
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches
     || window.navigator.standalone === true;
-  if (jaInstalado) {
+  if (isStandalone) {
     toast('✅ App já está instalado!');
     document.getElementById('pwa-install-btn').classList.add('hidden');
     return;
   }
 
-  // Android Chrome com evento nativo disponível → instala direto!
+  // MELHOR CASO: Chrome capturou o evento - instala DIRETO sem precisar dos 3 pontos
   if (deferredPrompt) {
     try {
-      deferredPrompt.prompt();
+      await deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
       deferredPrompt = null;
       if (outcome === 'accepted') {
         document.getElementById('pwa-install-btn').classList.add('hidden');
         toast('✅ Instalando app...');
       }
-    } catch(e) {
-      deferredPrompt = null;
-      mostrarModalAndroid();
+    } catch(err) {
+      console.log('Prompt error:', err);
+      mostrarInstrucoes();
     }
     return;
   }
 
   // iOS Safari
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-  if (isIOS) {
+  if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) {
     mostrarModalPWA(
-      '📱 Instalar no iPhone/iPad',
-      '1️⃣ Toque no ícone <strong>compartilhar</strong> <span style="font-size:1.1em;">⬆️</span> na barra inferior do Safari<br><br>' +
-      '2️⃣ Role para baixo e toque em <strong>"Adicionar à Tela de Início"</strong><br><br>' +
-      '3️⃣ Toque em <strong>"Adicionar"</strong> no canto superior direito'
+      '📱 Instalar no iPhone',
+      '<b>1.</b> Toque no ícone <b>compartilhar ⬆️</b> na barra inferior do Safari<br><br>' +
+      '<b>2.</b> Role e toque em <b>"Adicionar à Tela de Início"</b><br><br>' +
+      '<b>3.</b> Toque em <b>"Adicionar"</b>'
     );
     return;
   }
 
-  // Android Chrome sem evento nativo (pode ser que o chrome bloqueou)
-  mostrarModalAndroid();
+  // Android - evento ainda não disparou (site novo / primeira visita)
+  mostrarInstrucoes();
 }
 
-function mostrarModalAndroid() {
+function mostrarInstrucoes() {
   mostrarModalPWA(
-    '📲 Instalar no Android',
-    '<strong style="color:var(--rosa);">Opção 1 — Menu do Chrome:</strong><br>' +
-    '1️⃣ Toque nos <strong>3 pontos ⋮</strong> no canto superior direito<br>' +
-    '2️⃣ Toque em <strong>"Adicionar à tela inicial"</strong> ou <strong>"Instalar app"</strong><br>' +
-    '3️⃣ Confirme tocando em <strong>"Adicionar"</strong><br><br>' +
-    '<strong style="color:var(--ouro);">💡 Dica:</strong> Se não aparecer a opção, role a página para cima e aguarde alguns segundos.'
+    '📲 Como Instalar no Android',
+    '<div style="background:rgba(245,166,35,.15);border:1px solid #ffb703;border-radius:8px;padding:10px;margin-bottom:12px;font-size:.82rem;color:#ffb703;">' +
+    '⚠️ Se você está abrindo este link pela primeira vez, o Chrome precisa de algumas visitas antes de oferecer a instalação direta. Abra o link mais 1 ou 2 vezes e o botão funcionará sozinho.</div>' +
+    '<b>Por enquanto, instale manualmente:</b><br><br>' +
+    '<b>1.</b> Toque nos <b>3 pontos ⋮</b> no canto superior direito<br><br>' +
+    '<b>2.</b> Toque em <b>"Adicionar à tela inicial"</b> ou <b>"Instalar app"</b><br><br>' +
+    '<b>3.</b> Confirme tocando em <b>"Adicionar"</b>'
   );
 }
 
@@ -501,10 +508,12 @@ function mostrarModalPWA(titulo, instrucoes) {
   document.body.appendChild(overlay);
 }
 
-// Registrar Service Worker para PWA funcionar offline
+// Registrar Service Worker (obrigatório para PWA funcionar)
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw-fiado.js')
-    .then(() => console.log('SW Fiado registrado'))
+    .then(reg => {
+      console.log('SW Fiado registrado:', reg.scope);
+    })
     .catch(e => console.log('SW erro:', e));
 }
 </script>
