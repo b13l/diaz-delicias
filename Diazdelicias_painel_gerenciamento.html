@@ -976,7 +976,7 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;min-
     <div id="fiado-det-header" style="flex-shrink:0;"></div>
     <div style="flex:1;overflow-y:auto;min-height:0;">
       <div id="fiado-det-saldo" style="margin-bottom:12px;"></div>
-      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center;" id="fiado-det-btns"></div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;" id="fiado-det-btns"></div>
       <div id="fiado-det-trans"></div>
     </div>
     <div class="modal-actions" style="flex-shrink:0;padding-top:10px;display:flex;gap:8px;">
@@ -3871,7 +3871,7 @@ function renderListaFiado(lista) {
     const pct = Math.min(100,(usado/lim)*100);
     const cor = pct>80?'var(--vermelho)':pct>50?'var(--ouro)':'var(--verde)';
     const disp = Math.max(0, lim - usado);
-    return `<div class="fc-card" onclick="abrirDetalheFiado('${c.id}')">
+    return `<div class="fc-card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
         <div>
           <div style="font-weight:700;font-size:.9rem;">${c.nome}</div>
@@ -3886,10 +3886,13 @@ function renderListaFiado(lista) {
         </div>
         <div class="saldo-bar-f"><div class="saldo-fill-f" style="width:${pct}%;background:${cor};"></div></div>
       </div>
-      <div style="display:flex;gap:6px;margin-top:8px;font-size:.72rem;flex-wrap:wrap;">
-        <span style="background:var(--card2);border-radius:5px;padding:2px 8px;">📅 ${c.periodicidade==='mensal'?'Mensal':'Quinzenal'} · Dia ${c.dia_vencimento}</span>
-        <span style="background:var(--card2);border-radius:5px;padding:2px 8px;">${c.forma_pagamento==='PIX'?'🔵':'📄'} ${c.forma_pagamento}</span>
-        ${c.limite_max ? `<span style="background:var(--card2);border-radius:5px;padding:2px 8px;">🎯 Limite: ${R(c.limite_max)}</span>` : ''}
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;flex-wrap:wrap;gap:6px;">
+        <div style="display:flex;gap:6px;font-size:.72rem;flex-wrap:wrap;">
+          <span style="background:var(--card2);border-radius:5px;padding:2px 8px;">📅 ${c.periodicidade==='mensal'?'Mensal':'Quinzenal'} · Dia ${c.dia_vencimento}</span>
+          <span style="background:var(--card2);border-radius:5px;padding:2px 8px;">${c.forma_pagamento==='PIX'?'🔵':'📄'} ${c.forma_pagamento}</span>
+          ${c.limite_max ? `<span style="background:var(--card2);border-radius:5px;padding:2px 8px;">🎯 Limite: ${R(c.limite_max)}</span>` : ''}
+        </div>
+        <button onclick="abrirDetalheFiado('${c.id}')" style="background:rgba(245,166,35,.15);color:var(--ouro);border:1px solid var(--ouro);border-radius:7px;padding:5px 12px;font-size:.75rem;font-weight:700;cursor:pointer;white-space:nowrap;">📋 Detalhes</button>
       </div>
     </div>`;
   }).join('');
@@ -4017,8 +4020,7 @@ async function salvarClienteFiado() {
     dia_vencimento: parseInt(document.getElementById('fc-venc').value),
     forma_pagamento: document.getElementById('fc-fp').value,
     status: document.getElementById('fc-status').value,
-    observacao: document.getElementById('fc-obs').value.trim(),
-    updated_at: new Date().toISOString()
+    observacao: document.getElementById('fc-obs').value.trim()
   };
 
   let error;
@@ -4062,7 +4064,7 @@ async function confirmarPagamentoFiado() {
   // Atualizar saldo e status
   const novoStatus = novoSaldo === 0 ? 'ativo' : (c.status === 'inadimplente' ? 'ativo' : c.status);
   const { error: e2 } = await db.from('clientes_fiado').update({
-    saldo_usado: novoSaldo, status: novoStatus, updated_at: new Date().toISOString()
+    saldo_usado: novoSaldo, status: novoStatus
   }).eq('id', id);
   if (e2) { toast('Erro ao atualizar saldo', 'err'); return; }
 
@@ -4128,18 +4130,18 @@ async function alterarStatusFiado(id) {
   toast('Status alterado para ' + labels[novoIdx]);
 }
 
-
 async function excluirClienteFiado(id) {
   const c = fiadoClientes.find(x => String(x.id) === String(id));
   if (!c) return;
-  if (!confirm("⚠️ Excluir o cliente \"" + c.nome + "\"?\n\nTodo o histórico de transações será removido. Esta ação não pode ser desfeita.")) return;
-  await db.from("fiado_transacoes").delete().eq("cliente_id", String(id));
-  const { error } = await db.from("clientes_fiado").delete().eq("id", String(id));
-  if (error) { toast("Erro ao excluir: " + error.message, "err"); return; }
-  fecharModal("modal-fiado-detalhe");
+  if (!confirm('⚠️ Excluir o cliente "' + c.nome + '"?\n\nTodo o histórico será removido. Esta ação não pode ser desfeita.')) return;
+  await db.from('fiado_transacoes').delete().eq('cliente_id', String(id));
+  const { error } = await db.from('clientes_fiado').delete().eq('id', String(id));
+  if (error) { toast('Erro ao excluir: ' + error.message, 'err'); return; }
+  fecharModal('modal-fiado-detalhe');
   carregarClientesFiado();
-  toast("🗑️ Cliente removido com sucesso");
+  toast('🗑️ Cliente removido com sucesso');
 }
+
 function exportarFiado() {
   if (!fiadoClientes.length) { toast('Nenhum cliente para exportar', 'err'); return; }
   const cols = ['Nome','CPF','WhatsApp','Periodicidade','Vencimento','Forma PG','Limite','Usado','Disponível','Status'];
@@ -4176,8 +4178,7 @@ async function registrarConsumoFiado(clienteId, valor, descricao, pedidoId, mesa
   const novoStatus = novoSaldo >= parseFloat(c.limite_max||100) * 0.9 ? 'inadimplente' : 'ativo';
   await db.from('clientes_fiado').update({
     saldo_usado: novoSaldo,
-    status: novoSaldo >= parseFloat(c.limite_max||100) ? 'inadimplente' : c.status,
-    updated_at: new Date().toISOString()
+    status: novoSaldo >= parseFloat(c.limite_max||100) ? 'inadimplente' : c.status
   }).eq('id', clienteId);
   return true;
 }
