@@ -1,4 +1,4 @@
-const CACHE = 'diaz-fiado-v2';
+const CACHE = 'diaz-fiado-v3';
 
 self.addEventListener('install', e => {
   e.waitUntil(
