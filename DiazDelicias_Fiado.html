@@ -203,7 +203,19 @@ async function init() {
   const saved = localStorage.getItem('fiado_cliente_id');
   if (saved) {
     const { data } = await db.from('clientes_fiado').select('*').eq('id', saved).maybeSingle();
-    if (data) { clienteLogado = data; mostrarConta(); return; }
+    if (data) {
+      if (data.status === 'pendente_aprovacao' || data.status === 'pendente') {
+        irTela('tela-aguardando');
+        document.getElementById('aguardando-nome').textContent = data.nome;
+        return;
+      }
+      if (data.status === 'bloqueado') {
+        localStorage.removeItem('fiado_cliente_id');
+        irTela('tela-inicio');
+        return;
+      }
+      clienteLogado = data; mostrarConta(); return;
+    }
     localStorage.removeItem('fiado_cliente_id');
   }
 }
@@ -297,6 +309,16 @@ async function fazerLogin() {
   if (cpf.length !== 11) { toast('CPF inválido','err'); return; }
   const { data } = await db.from('clientes_fiado').select('*').eq('cpf',cpf).maybeSingle();
   if (!data) { toast('CPF não encontrado — faça o cadastro!','err'); return; }
+  // Verificar status ANTES de dar acesso
+  if (data.status === 'pendente_aprovacao' || data.status === 'pendente') {
+    irTela('tela-aguardando');
+    document.getElementById('aguardando-nome').textContent = data.nome;
+    return;
+  }
+  if (data.status === 'bloqueado') {
+    toast('Acesso bloqueado. Entre em contato com o Diaz Delicias.','err');
+    return;
+  }
   clienteLogado = data;
   localStorage.setItem('fiado_cliente_id', data.id);
   mostrarConta();
@@ -384,35 +406,43 @@ document.addEventListener('DOMContentLoaded', init);
 // ===== PWA INSTALL =====
 let deferredPrompt = null;
 
+// Capturar evento de instalação (Android Chrome automático)
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredPrompt = e;
+  // Quando o Chrome detecta que pode instalar, mostrar botão
   const btn = document.getElementById('pwa-install-btn');
   if (btn) btn.classList.remove('hidden');
 });
 
-// Mostrar botão apenas em mobile (não em desktop)
-document.addEventListener('DOMContentLoaded', () => {
+// Mostrar botão sempre que não estiver instalado (mobile e desktop)
+window.addEventListener('load', () => {
   const jaInstalado = window.matchMedia('(display-mode: standalone)').matches
     || window.navigator.standalone === true;
-  if (jaInstalado) return; // já instalado, não mostrar
-  
-  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  if (isMobile) {
+  if (jaInstalado) {
+    // Já instalado: esconder botão
     const btn = document.getElementById('pwa-install-btn');
-    if (btn) btn.classList.remove('hidden');
+    if (btn) btn.classList.add('hidden');
+    return;
   }
-  // No desktop o Chrome mostra o ícone de instalar na barra de endereço automaticamente
+  // Mostrar botão em qualquer dispositivo
+  const btn = document.getElementById('pwa-install-btn');
+  if (btn) btn.classList.remove('hidden');
 });
 
 async function instalarPWA() {
+  // Tentar instalar via prompt nativo (Android Chrome)
   if (deferredPrompt) {
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    deferredPrompt = null;
-    if (outcome === 'accepted') {
-      document.getElementById('pwa-install-btn').classList.add('hidden');
-      toast('✅ Instalando app...');
+    try {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      deferredPrompt = null;
+      if (outcome === 'accepted') {
+        document.getElementById('pwa-install-btn').classList.add('hidden');
+        toast('✅ Instalando app...');
+      }
+    } catch(e) {
+      deferredPrompt = null;
     }
     return;
   }
