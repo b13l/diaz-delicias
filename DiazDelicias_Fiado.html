@@ -491,13 +491,13 @@ function mostrarModalAndroid() {
 function mostrarModalPWA(titulo, instrucoes) {
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
-  overlay.innerHTML = \`
-    <div style="background:#1a1117;border:2px solid var(--rosa);border-radius:18px;padding:24px;max-width:340px;width:100%;box-shadow:0 0 40px rgba(247,37,133,.3);">
-      <div style="font-size:1.1rem;font-weight:800;color:var(--rosa);margin-bottom:14px;text-align:center;">\${titulo}</div>
-      <div style="font-size:.86rem;color:#ddd;line-height:1.9;margin-bottom:20px;">\${instrucoes}</div>
-      <button onclick="this.closest('[style*=fixed]').remove()" style="background:linear-gradient(135deg,var(--rosa),var(--rosa-esc));color:#fff;border:none;padding:13px 28px;border-radius:10px;font-weight:800;font-size:.95rem;cursor:pointer;width:100%;">Entendi ✓</button>
-    </div>
-  \`;
+  const box = document.createElement('div');
+  box.style.cssText = 'background:#1a1117;border:2px solid var(--rosa);border-radius:18px;padding:24px;max-width:340px;width:100%;box-shadow:0 0 40px rgba(247,37,133,.3);';
+  box.innerHTML =
+    '<div style="font-size:1.1rem;font-weight:800;color:var(--rosa);margin-bottom:14px;text-align:center;">' + titulo + '</div>' +
+    '<div style="font-size:.86rem;color:#ddd;line-height:1.9;margin-bottom:20px;">' + instrucoes + '</div>' +
+    '<button onclick="this.closest(\'div\').parentElement.remove()" style="background:linear-gradient(135deg,var(--rosa),var(--rosa-esc));color:#fff;border:none;padding:13px 28px;border-radius:10px;font-weight:800;font-size:.95rem;cursor:pointer;width:100%;">Entendi ✓</button>';
+  overlay.appendChild(box);
   document.body.appendChild(overlay);
 }
 
