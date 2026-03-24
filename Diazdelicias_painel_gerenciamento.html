@@ -3889,9 +3889,14 @@ function renderListaFiado(lista) {
     const pct = Math.min(100,(usado/lim)*100);
     const cor = pct>80?'var(--vermelho)':pct>50?'var(--ouro)':'var(--verde)';
     const disp = Math.max(0, lim - usado);
+    const _iniciais = c.nome.trim().split(' ').filter(Boolean).map(p=>p[0].toUpperCase()).slice(0,2).join('');
+    const _avatarHtml = c.avatar_url
+      ? `<img src="${c.avatar_url}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:2.5px solid #ff2d78;box-shadow:0 0 10px #ff2d78aa;flex-shrink:0;">`
+      : `<div style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#ff2d78,#ff6eb4);display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:900;color:#fff;flex-shrink:0;box-shadow:0 0 10px #ff2d78aa;">${_iniciais}</div>`;
     return `<div class="fc-card">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
-        <div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;gap:10px;">
+        ${_avatarHtml}
+        <div style="flex:1;min-width:0;">
           <div style="font-weight:700;font-size:.9rem;">${c.nome}</div>
           <div style="font-size:.72rem;color:var(--txt2);">CPF: ${c.cpf} • ${c.whatsapp}</div>
         </div>
@@ -3925,9 +3930,14 @@ async function abrirDetalheFiado(id) {
   const stMap = {ativo:'fc-ativo',pendente_aprovacao:'fc-pendente',bloqueado:'fc-bloqueado'};
   const stLabel = {ativo:'✅ Ativo',pendente_aprovacao:'⏳ Pendente Aprovação',bloqueado:'🔒 Bloqueado'};
 
+  const _iniDet = c.nome.trim().split(' ').filter(Boolean).map(p=>p[0].toUpperCase()).slice(0,2).join('');
+  const _avatarDet = c.avatar_url
+    ? `<img src="${c.avatar_url}" style="width:58px;height:58px;border-radius:50%;object-fit:cover;border:2.5px solid #ff2d78;box-shadow:0 0 12px #ff2d78aa;flex-shrink:0;">`
+    : `<div style="width:58px;height:58px;border-radius:50%;background:linear-gradient(135deg,#ff2d78,#ff6eb4);display:flex;align-items:center;justify-content:center;font-size:1.2rem;font-weight:900;color:#fff;flex-shrink:0;box-shadow:0 0 10px #ff2d78aa;">${_iniDet}</div>`;
   document.getElementById('fiado-det-header').innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
-      <div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;gap:12px;">
+      ${_avatarDet}
+      <div style="flex:1;min-width:0;">
         <div style="font-size:1rem;font-weight:800;">${c.nome}</div>
         <div style="font-size:.75rem;color:var(--txt2);">CPF: ${c.cpf} • WhatsApp: ${c.whatsapp}</div>
         <div style="font-size:.75rem;color:var(--txt2);">📅 ${c.periodicidade==='mensal'?'Mensal':'Quinzenal'} · Dia ${c.dia_vencimento} · ${c.forma_pagamento}</div>
