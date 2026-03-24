@@ -159,7 +159,7 @@ html,body{background:var(--bg);color:var(--txt);font-family:'Segoe UI',system-ui
         <img id="conta-avatar-img" src="" alt="" style="display:none;width:100%;height:100%;object-fit:cover;position:absolute;inset:0;">
         <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(255,45,120,.7);text-align:center;font-size:.5rem;color:#fff;font-weight:700;padding:2px 0;">📷 foto</div>
       </div>
-      <input type="file" id="inp-avatar" accept="image/*" capture="user" style="display:none" onchange="uploadAvatarCliente(this)">
+      <input type="file" id="inp-avatar" accept="image/*" style="display:none" onchange="uploadAvatarCliente(this)">
       <div style="flex:1;">
         <div style="font-weight:800;font-size:1rem;" id="conta-nome-display">—</div>
         <div style="font-size:.72rem;color:var(--txt2);margin-top:2px;" id="conta-info-display">—</div>
@@ -424,7 +424,7 @@ async function mostrarConta() {
   document.getElementById('conta-info-display').innerHTML =
     clienteLogado.periodicidade.charAt(0).toUpperCase()+clienteLogado.periodicidade.slice(1)+
     ' • Venc. dia '+clienteLogado.dia_vencimento+' • '+clienteLogado.forma_pagamento +
-    (_cpf4 ? '<div style="margin-top:5px;font-size:.7rem;color:#ff6eb4;font-weight:700;letter-spacing:.3px;">🪪 Seu ID de acesso são os <span style=\'color:#fff;background:linear-gradient(135deg,#ff2d78,#ff6eb4);padding:1px 7px;border-radius:10px;box-shadow:0 0 8px #ff2d78aa;font-weight:900;\'>4 últimos dígitos do CPF</span></div>' : '');
+    (_cpf4 ? '<div style="margin-top:5px;font-size:.7rem;color:#ff6eb4;font-weight:700;letter-spacing:.3px;">🪪 Seu ID para usar o <span style=\'color:#fff;background:linear-gradient(135deg,#ff2d78,#ff6eb4);padding:1px 7px;border-radius:10px;box-shadow:0 0 8px #ff2d78aa;font-weight:900;\'>Crédito Fiado</span> são os últimos 4 dígitos do seu CPF</div>' : '');
 
   const badge = document.getElementById('conta-badge');
   const stMap = {ativo:'badge-ativo',pendente:'badge-pendente',bloqueado:'badge-bloqueado'};
@@ -729,7 +729,10 @@ function atualizarStatusNotif() {
   const ativo = localStorage.getItem('fiado_notif_ativo') === 'true';
   if (!ativo) { el.textContent = 'Notificações desativadas'; el.style.color = 'var(--txt3)'; return; }
   if (Notification.permission === 'granted') { el.textContent = '✅ Notificações ativas'; el.style.color = 'var(--verde)'; }
-  else if (Notification.permission === 'denied') { el.textContent = '🔴 Permissão negada — ative nas configurações'; el.style.color = 'var(--vermelho)'; }
+  else if (Notification.permission === 'denied') {
+    el.innerHTML = '🔴 <strong>Permissão bloqueada pelo navegador.</strong><br><span style="font-size:.68rem;color:var(--txt2);">No Chrome: toque no 🔒 na barra de endereço → Permissões do site → Notificações → Permitir.<br>No Firefox: Menu → Configurações → Privacidade → Notificações.</span>';
+    el.style.color = 'var(--vermelho)';
+  }
   else { el.textContent = '⏳ Aguardando permissão'; }
 }
 
@@ -763,8 +766,17 @@ async function verificarNotificacaoVencimento() {
 }
 
 function testarNotificacao() {
+  if (Notification.permission === 'denied') {
+    const el = document.getElementById('notif-status-txt');
+    if (el) {
+      el.innerHTML = '🔴 <strong>Permissão bloqueada.</strong><br><span style="font-size:.68rem;color:var(--txt2);">Acesse as configurações do seu navegador e permita notificações para este site.<br>Chrome: 🔒 na barra → Notificações → Permitir</span>';
+      el.style.color = 'var(--vermelho)';
+    }
+    toast('Permissão bloqueada. Veja as instruções abaixo.','err');
+    return;
+  }
   solicitarPermissaoNotificacao().then(ok => {
-    if (!ok) { toast('Permissão negada','err'); return; }
+    if (!ok) { toast('Permissão não concedida','err'); return; }
     new Notification('🧪 Diaz Delicias', { body: 'Notificações funcionando! ✅', tag: 'fiado-teste' });
     toast('Notificação enviada!');
   });
