@@ -612,11 +612,9 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;min-
     <div class="modal-titulo">🤝 Pagamento Fiado</div>
     <div id="fiado-id-step1">
       <div style="font-size:.8rem;color:var(--txt2);margin-bottom:12px;">Digite os <strong style="color:var(--ouro);">4 últimos dígitos</strong> do CPF do cliente:</div>
-      <div style="position:relative;margin-bottom:10px;">
-        <input type="tel" id="inp-fiado-id" maxlength="4" placeholder="Ex: 3484"
-          style="width:100%;padding:14px 16px;background:var(--card2);border:2px solid var(--ouro);border-radius:10px;color:var(--txt);font-size:1.5rem;font-weight:800;text-align:center;letter-spacing:8px;outline:none;font-family:monospace;"
-          oninput="this.value=this.value.replace(/\D/g,'');if(this.value.length===4)buscarClientePorId()">
-      </div>
+      <input type="tel" id="inp-fiado-id" maxlength="4" placeholder="Ex: 3484"
+        style="width:100%;padding:14px 16px;background:var(--card2);border:2px solid var(--ouro);border-radius:10px;color:var(--txt);font-size:1.5rem;font-weight:800;text-align:center;letter-spacing:8px;outline:none;font-family:monospace;margin-bottom:10px;"
+        oninput="this.value=this.value.replace(/\D/g,'');if(this.value.length===4)buscarClientePorId()">
       <div id="fiado-id-resultado"></div>
     </div>
     <div id="fiado-id-step2" style="display:none;">
@@ -624,7 +622,7 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;min-
     </div>
     <div class="modal-actions" style="margin-top:12px;">
       <button class="btn-sec" onclick="fecharModalFiado()">Cancelar</button>
-      <button class="btn-prim" id="btn-confirmar-fiado" style="flex:1;margin-top:0;display:none;" onclick="confirmarPagamentoFiado()">✅ Usar Fiado</button>
+      <button class="btn-prim" id="btn-confirmar-fiado" style="flex:1;margin-top:0;display:none;" onclick="confirmarPagamentoFiadoModal()">✅ Usar Fiado</button>
     </div>
   </div>
 </div>
@@ -1790,7 +1788,9 @@ function pedCardHTML(p) {
       bebidasPendentes[p.id].map(b => 
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">' +
         '<span style="font-size:.78rem;">' + b.qty + 'x ' + b.name + '</span>' +
-        '<button onclick="entregarBebida(' + p.id + ',\'' + b.name.replace(/'/g,"\\'\")") + '\')" style="background:var(--azul);color:#000;border:none;border-radius:5px;padding:2px 8px;font-size:.72rem;font-weight:700;cursor:pointer;">✅ Entregue</button>' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">' +
+        '<span style="font-size:.78rem;">' + b.qty + 'x ' + b.name + '</span>' +
+        '<button onclick="entregarBebida(' + p.id + ', this.dataset.nome)" data-nome="' + b.name.replace(/"/g,'&quot;') + '" style="background:var(--azul);color:#000;border:none;border-radius:5px;padding:2px 8px;font-size:.72rem;font-weight:700;cursor:pointer;">✅ Entregue</button>' +
         '</div>'
       ).join('') +
       '</div>' : '') +
@@ -1857,14 +1857,12 @@ function abrirModalFechamento(pedidoId, mesaId) {
   totalFechamento = pedido.total_value || 0;
   const cli = pedido.client_name || '';
   const isViagem = !pedido.mesa_id;
-  // Fiado: sempre visível, identificação feita pelo modal de ID
+  // Fiado: identificação via modal de ID
   setTimeout(() => {
-    const btnFiado = document.getElementById('btn-pag-fiado');
-    const fiadoArea = document.getElementById('fiado-fechamento-area');
     window._clienteFiadoFechamento = null;
-    if (btnFiado) { btnFiado.style.display = 'block'; btnFiado.style.opacity = '1'; btnFiado.style.pointerEvents = 'auto'; }
+    const fiadoArea = document.getElementById('fiado-fechamento-area');
     if (fiadoArea) fiadoArea.style.display = 'none';
-    if (false) { // bloco else simulado para manter estrutura
+    if (false) {
     }
   }, 100);
   const jaPago = isViagem && pedido.forma_pagamento && pedido.forma_pagamento !== 'Pagar depois';
@@ -1948,12 +1946,9 @@ async function confirmarFechamento() {
     }
   }
   
-  // Fiado é processado pelo confirmarPagamentoFiado() — bloquear aqui se tentar selecionar fiado diretamente
-  if (formaPagamentoSel === 'Fiado' || formaPagamentoSel.startsWith('Fiado')) {
-    toast('Use o botão 🤝 Fiado para identificar o cliente', 'err');
-    return;
+  if (formaPagamentoSel === 'Fiado' || (formaPagamentoSel||'').startsWith('Fiado')) {
+    toast('Use o botão 🤝 Fiado para identificar o cliente', 'err'); return;
   }
-
   const { error } = await db.from('pedidos').update({
     status: 'CONCLUIDO',
     forma_pagamento: formaPagamentoSel
@@ -2502,7 +2497,7 @@ function renderCardapioDiaCozinha() {
           ${p.descricao ? '<div style="font-size:.68rem;color:var(--txt2);">' + p.descricao + '</div>' : ''}
         </div>
         <div style="font-size:.85rem;color:var(--verde);font-weight:700;white-space:nowrap;">${R(p.preco)}</div>
-        <button onclick="addItemCozinha(${p.id}, '${p.nome.replace(/'/g, "\'")}", ${p.preco})"
+        <button onclick="addItemCozinha(${p.id}, this.dataset.nome, ${p.preco})" data-nome="${p.nome}"
           style="background:var(--verde-esc);color:#000;border:none;border-radius:6px;padding:6px 12px;font-size:.78rem;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0;">
           + Adicionar
         </button>
@@ -2562,7 +2557,7 @@ function renderProdutosCozinha(filtro = '') {
             <div style="font-size:.68rem;color:var(--txt2);">${p.categoria}</div>
           </div>
           <div style="font-size:.82rem;color:var(--verde);font-weight:700;white-space:nowrap;">${R(p.preco)}</div>
-          <button onclick="addItemCozinha(${p.id}, '${p.nome.replace(/'/g, "\'")}', ${p.preco})"
+        <button onclick="addItemCozinha(${p.id}, this.dataset.nome, ${p.preco})" data-nome="${p.nome}"
             style="background:var(--verde-esc);color:#000;border:none;border-radius:6px;padding:5px 10px;font-size:.78rem;font-weight:700;cursor:pointer;white-space:nowrap;">
             + Adicionar
           </button>
@@ -3320,7 +3315,7 @@ function renderViagemCardapioDia() {
           ${p.descricao ? '<div style="font-size:.68rem;color:var(--txt2);">' + p.descricao + '</div>' : ''}
         </div>
         <div style="font-size:.85rem;color:var(--verde);font-weight:700;white-space:nowrap;">${R(p.preco)}</div>
-        <button onclick="addItemViagem(${p.id},'${p.nome.replace(/'/g,"\'")}',${p.preco})"
+        <button onclick="addItemViagem(${p.id}, this.dataset.nome, ${p.preco})" data-nome="${p.nome}"
           style="background:var(--verde-esc);color:#000;border:none;border-radius:6px;padding:6px 12px;font-size:.78rem;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0;">
           + Adicionar
         </button>
@@ -3354,7 +3349,7 @@ function renderViagemProdutos(filtro = '') {
           ${p.descricao ? '<div style="font-size:.68rem;color:var(--txt2);">' + p.descricao + '</div>' : ''}
         </div>
         <div style="font-size:.84rem;color:var(--verde);font-weight:700;white-space:nowrap;">${R(p.preco)}</div>
-        <button onclick="addItemViagem(${p.id},'${p.nome.replace(/'/g,"\'")}',${p.preco})"
+        <button onclick="addItemViagem(${p.id}, this.dataset.nome, ${p.preco})" data-nome="${p.nome}"
           style="background:var(--verde-esc);color:#000;border:none;border-radius:6px;padding:6px 12px;font-size:.78rem;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0;">
           + Adicionar
         </button>
@@ -3844,6 +3839,12 @@ function verificarPinFiado() {
   }
 }
 
+async function buscarClienteFiadoPorNome(nome) {
+  if (!nome || !fiadoClientes.length) return null;
+  const n = nome.toLowerCase().trim();
+  return fiadoClientes.find(c => c.nome && c.nome.toLowerCase().trim() === n) || null;
+}
+
 async function carregarClientesFiado() {
   const { data } = await db.from('clientes_fiado').select('*').order('nome');
   fiadoClientes = data || [];
@@ -3979,18 +3980,13 @@ async function abrirDetalheFiado(id) {
   const tHTML = (trans && trans.length) ? trans.map(t => {
     const cor2 = t.tipo==='pagamento'?'var(--verde)':'var(--vermelho)', sinal = t.tipo==='pagamento'?'+':'-';
     const dt = new Date(t.data_transacao).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
-    const compBtn = (t.comprovante_dados && t.tipo==='consumo')
-      ? '<button onclick="verComprovanteFiado(this)" data-comp="'+encodeURIComponent(JSON.stringify(t.comprovante_dados))+'" style="background:rgba(255,183,3,.15);color:var(--ouro);border:1px solid var(--ouro);border-radius:5px;padding:2px 8px;font-size:.68rem;cursor:pointer;margin-top:3px;">🧾 Comprovante</button>'
-      : '';
-    return `<div class="trans-row">
-      <div><div style="font-weight:600;">${t.descricao||(t.tipo==='pagamento'?'Pagamento':'Consumo')}</div>
-      <div style="font-size:.7rem;color:var(--txt2);">${dt}${t.mesa?' · Mesa '+t.mesa:''}</div>
-      ${compBtn}</div>
-      <div style="font-weight:800;color:${cor2};white-space:nowrap;">${sinal}${R(t.valor)}</div>
-    </div>`;
+    const cBtn = (t.comprovante_dados && t.tipo==='consumo') ? '<button onclick="verComprovanteFiado(this)" data-comp="'+encodeURIComponent(JSON.stringify(t.comprovante_dados))+'" style="background:rgba(255,183,3,.15);color:var(--ouro);border:1px solid var(--ouro);border-radius:5px;padding:2px 8px;font-size:.68rem;cursor:pointer;margin-top:3px;">🧾 Comprovante</button>' : '';
+    return `<div class="trans-row"><div><div style="font-weight:600;">${t.descricao||(t.tipo==='pagamento'?'Pagamento':'Consumo')}</div><div style="font-size:.7rem;color:var(--txt2);">${dt}${t.mesa?' · Mesa '+t.mesa:''}</div>${cBtn}</div><div style="font-weight:800;color:${cor2};white-space:nowrap;">${sinal}${R(t.valor)}</div></div>`;
   }).join('') : '<div style="color:var(--txt3);text-align:center;padding:14px;font-size:.82rem;">Nenhuma movimentação</div>';
+
   document.getElementById('fiado-det-trans').innerHTML = `
     <div style="font-size:.75rem;font-weight:700;color:var(--txt2);text-transform:uppercase;margin-bottom:8px;">📋 Movimentações</div>${tHTML}`;
+
   document.getElementById('modal-fiado-detalhe').classList.add('show');
 }
 
@@ -4028,7 +4024,8 @@ function editarClienteFiado(id) {
 async function salvarClienteFiado() {
   const id = document.getElementById('fc-id').value;
   const nome = document.getElementById('fc-nome').value.trim();
-  const cpf = document.getElementById('fc-cpf').value.trim();
+  const cpfRaw = document.getElementById('fc-cpf').value.trim();
+  const cpf = cpfRaw.replace(/\D/g, '');
   const whats = document.getElementById('fc-whats').value.trim();
   const limite = parseFloat(document.getElementById('fc-limite').value);
   if (!nome || !cpf || !whats || !limite) { toast('Preencha todos os campos obrigatórios', 'err'); return; }
@@ -4180,19 +4177,20 @@ function exportarFiado() {
 
 // Registrar consumo fiado a partir de pedido fechado
 
-// ==================== FIADO POR ID (4 ÚLTIMOS DÍGITOS CPF) ====================
+// ==================== FIADO POR ID ====================
 let _fiadoPedidoItens = [];
 
 function abrirModalFiado() {
-  // Capturar itens do pedido atual para comprovante
   const pedido = pedidosAtuais.find(p => p.id === pedidoFechamentoId);
   _fiadoPedidoItens = pedido ? (Array.isArray(pedido.order_details) ? pedido.order_details : []) : [];
-
   document.getElementById('inp-fiado-id').value = '';
   document.getElementById('fiado-id-resultado').innerHTML = '';
   document.getElementById('fiado-id-step1').style.display = 'block';
   document.getElementById('fiado-id-step2').style.display = 'none';
-  document.getElementById('btn-confirmar-fiado').style.display = 'none';
+  const btnF = document.getElementById('btn-confirmar-fiado');
+  btnF.style.display = 'none';
+  btnF.disabled = false;
+  btnF.textContent = '✅ Usar Fiado';
   window._clienteFiadoFechamento = null;
   document.getElementById('modal-fiado-id').classList.add('show');
   setTimeout(() => document.getElementById('inp-fiado-id').focus(), 200);
@@ -4200,7 +4198,6 @@ function abrirModalFiado() {
 
 function fecharModalFiado() {
   document.getElementById('modal-fiado-id').classList.remove('show');
-  // Se havia selecionado fiado, desmarcar
   document.querySelectorAll('#modal-fechamento .pag-btn').forEach(b => b.classList.remove('sel'));
   formaPagamentoSel = '';
   document.getElementById('btn-confirmar-fechamento').disabled = true;
@@ -4211,36 +4208,25 @@ async function buscarClientePorId() {
   if (id4.length !== 4) return;
   const res = document.getElementById('fiado-id-resultado');
   res.innerHTML = '<div style="color:var(--txt2);font-size:.8rem;text-align:center;padding:8px;">🔍 Buscando...</div>';
-
-  // Buscar cliente cujo CPF termina com esses 4 dígitos
   const { data: clientes } = await db.from('clientes_fiado').select('*');
   const cliente = (clientes || []).find(c => {
-    const cpf = (c.cpf || '').replace(/\D/g,'');
+    const cpf = (c.cpf || '').replace(/\D/g, '');
     return cpf.slice(-4) === id4;
   });
-
   if (!cliente) {
     res.innerHTML = '<div style="background:rgba(255,71,87,.1);border:1px solid var(--vermelho);border-radius:8px;padding:10px;font-size:.82rem;color:var(--vermelho);text-align:center;">❌ Nenhum cliente encontrado com ID <strong>' + id4 + '</strong></div>';
     document.getElementById('btn-confirmar-fiado').style.display = 'none';
     return;
   }
-
   res.innerHTML = '';
   const disp = Math.max(0, (cliente.limite_max||0) - (cliente.saldo_usado||0));
   const podePagar = cliente.status === 'ativo' && disp >= totalFechamento;
   const cpfF = (cliente.cpf||'').replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
-
-  let statusColor = 'var(--verde)', statusMsg = '✅ Ativo';
-  if (cliente.status === 'bloqueado') { statusColor = 'var(--vermelho)'; statusMsg = '🔴 Bloqueado'; }
-  else if (cliente.status === 'inadimplente') { statusColor = 'var(--vermelho)'; statusMsg = '⚠️ Inadimplente'; }
-  else if (cliente.status === 'pendente_aprovacao' || cliente.status === 'pendente') { statusColor = 'var(--ouro)'; statusMsg = '⏳ Pendente'; }
-
-  let motivoBloqueo = '';
-  if (!podePagar) {
-    if (cliente.status !== 'ativo') motivoBloqueo = '<div style="color:var(--vermelho);font-size:.75rem;margin-top:6px;">⛔ Status: ' + statusMsg + ' — pagamento bloqueado</div>';
-    else motivoBloqueo = '<div style="color:var(--vermelho);font-size:.75rem;margin-top:6px;">⛔ Saldo insuficiente — disponível ' + R(disp) + ' / necessário ' + R(totalFechamento) + '</div>';
-  }
-
+  let sColor = 'var(--verde)', sMsg = '✅ Ativo';
+  if (cliente.status === 'bloqueado') { sColor = 'var(--vermelho)'; sMsg = '🔴 Bloqueado'; }
+  else if (cliente.status === 'inadimplente') { sColor = 'var(--vermelho)'; sMsg = '⚠️ Inadimplente'; }
+  else if (cliente.status === 'pendente_aprovacao' || cliente.status === 'pendente') { sColor = 'var(--ouro)'; sMsg = '⏳ Pendente'; }
+  const bloqMsg = !podePagar ? ('<div style="color:var(--vermelho);font-size:.75rem;margin-top:6px;">⛔ ' + (cliente.status !== 'ativo' ? sMsg + ' — pagamento bloqueado' : 'Saldo insuficiente: ' + R(disp) + ' disponível / ' + R(totalFechamento) + ' necessário') + '</div>') : '';
   document.getElementById('fiado-id-step1').style.display = 'none';
   document.getElementById('fiado-id-step2').style.display = 'block';
   document.getElementById('fiado-cliente-card').innerHTML =
@@ -4248,155 +4234,109 @@ async function buscarClientePorId() {
     '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">' +
     '<div><div style="font-weight:800;font-size:1rem;">' + cliente.nome + '</div>' +
     '<div style="font-size:.72rem;color:var(--txt2);">CPF: ' + cpfF + ' · ID: <strong style="color:var(--ouro);">' + id4 + '</strong></div></div>' +
-    '<span style="font-size:.72rem;font-weight:700;color:' + statusColor + ';">' + statusMsg + '</span></div>' +
+    '<span style="font-size:.72rem;font-weight:700;color:' + sColor + ';">' + sMsg + '</span></div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">' +
-    '<div style="background:var(--card);border-radius:8px;padding:8px;text-align:center;">' +
-    '<div style="font-size:.62rem;color:var(--txt3);margin-bottom:2px;">LIMITE</div>' +
-    '<div style="font-weight:800;font-size:.88rem;color:var(--ouro);">' + R(cliente.limite_max) + '</div></div>' +
-    '<div style="background:var(--card);border-radius:8px;padding:8px;text-align:center;">' +
-    '<div style="font-size:.62rem;color:var(--txt3);margin-bottom:2px;">USADO</div>' +
-    '<div style="font-weight:800;font-size:.88rem;color:var(--vermelho);">' + R(cliente.saldo_usado) + '</div></div>' +
-    '<div style="background:var(--card);border-radius:8px;padding:8px;text-align:center;">' +
-    '<div style="font-size:.62rem;color:var(--txt3);margin-bottom:2px;">DISPONÍVEL</div>' +
-    '<div style="font-weight:800;font-size:.88rem;color:' + (disp>0?'var(--verde)':'var(--vermelho)') + ';">' + R(disp) + '</div></div>' +
-    '</div>' +
-    '<div style="background:var(--card);border-radius:8px;padding:8px;font-size:.78rem;color:var(--txt2);">' +
-    '💳 ' + (cliente.forma_pagamento||'—') + ' · 📅 Venc. dia ' + (cliente.dia_vencimento||'—') + ' · 🔄 ' + (cliente.periodicidade||'—') + '</div>' +
-    motivoBloqueo + '</div>' +
-    (podePagar ? '<div style="background:rgba(0,230,118,.1);border:1px solid var(--verde);border-radius:8px;padding:10px;font-size:.82rem;color:var(--verde);text-align:center;">✅ Tudo certo! Valor a lançar: <strong>' + R(totalFechamento) + '</strong></div>' : '');
-
+    '<div style="background:var(--card);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:.62rem;color:var(--txt3);">LIMITE</div><div style="font-weight:800;color:var(--ouro);">' + R(cliente.limite_max) + '</div></div>' +
+    '<div style="background:var(--card);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:.62rem;color:var(--txt3);">USADO</div><div style="font-weight:800;color:var(--vermelho);">' + R(cliente.saldo_usado) + '</div></div>' +
+    '<div style="background:var(--card);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:.62rem;color:var(--txt3);">DISPONÍVEL</div><div style="font-weight:800;color:' + (disp>0?'var(--verde)':'var(--vermelho)') + ';">' + R(disp) + '</div></div>' +
+    '</div><div style="font-size:.78rem;color:var(--txt2);background:var(--card);border-radius:8px;padding:8px;">💳 ' + (cliente.forma_pagamento||'—') + ' · 📅 Dia ' + (cliente.dia_vencimento||'—') + ' · 🔄 ' + (cliente.periodicidade||'—') + '</div>' +
+    bloqMsg + '</div>' +
+    (podePagar ? '<div style="background:rgba(0,230,118,.1);border:1px solid var(--verde);border-radius:8px;padding:10px;font-size:.82rem;color:var(--verde);text-align:center;">✅ Valor a lançar: <strong>' + R(totalFechamento) + '</strong></div>' : '');
+  const btnF = document.getElementById('btn-confirmar-fiado');
   if (podePagar) {
     window._clienteFiadoFechamento = cliente;
-    document.getElementById('btn-confirmar-fiado').style.display = 'block';
+    btnF.style.display = 'block';
+    btnF.disabled = false;
+    btnF.textContent = '✅ Usar Fiado';
   } else {
-    document.getElementById('btn-confirmar-fiado').style.display = 'none';
+    btnF.style.display = 'none';
   }
 }
 
-async function confirmarPagamentoFiado() {
+async function confirmarPagamentoFiadoModal() {
   const cf = window._clienteFiadoFechamento;
   if (!cf) return;
-  document.getElementById('btn-confirmar-fiado').disabled = true;
-  document.getElementById('btn-confirmar-fiado').textContent = '⏳ Processando...';
-
-  const pedido = pedidosAtuais.find(p => p.id === pedidoFechamentoId);
-  const itens = _fiadoPedidoItens;
-  const cpfF = (cf.cpf||'').replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
-  const id4 = (cf.cpf||'').replace(/\D/g,'').slice(-4);
-  const agora = new Date();
-  const dtF = agora.toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-
-  // Montar dados do comprovante
-  const comprovante = {
-    cliente_id: cf.id,
-    cliente_nome: cf.nome,
-    cliente_cpf: cpfF,
-    cliente_id4: id4,
-    valor: totalFechamento,
-    saldo_antes: cf.saldo_usado,
-    saldo_depois: parseFloat(cf.saldo_usado||0) + totalFechamento,
-    limite: cf.limite_max,
-    itens: itens,
-    pedido_id: pedidoFechamentoId,
-    mesa: pedido ? (pedido.mesa_numero || (pedido.nome_comanda ? pedido.nome_comanda : 'Viagem')) : '—',
-    data_hora: agora.toISOString(),
-    data_hora_br: dtF
-  };
-
-  // Registrar transação com comprovante
-  const { error: eTrans } = await db.from('fiado_transacoes').insert([{
-    cliente_id: cf.id,
-    tipo: 'consumo',
-    valor: totalFechamento,
-    descricao: 'Consumo ' + (pedido?.nome_comanda || (pedido?.mesa_numero ? 'Mesa '+pedido.mesa_numero : 'Balcão')),
-    pedido_id: pedidoFechamentoId,
-    mesa: String(pedido?.mesa_numero || ''),
-    data_transacao: agora.toISOString(),
-    comprovante_dados: comprovante
-  }]);
-  if (eTrans) { toast('Erro ao registrar fiado: ' + eTrans.message, 'err'); document.getElementById('btn-confirmar-fiado').disabled = false; document.getElementById('btn-confirmar-fiado').textContent = '✅ Usar Fiado'; return; }
-
-  // Atualizar saldo do cliente
-  const novoSaldo = parseFloat(cf.saldo_usado||0) + totalFechamento;
-  const novoStatus = novoSaldo >= parseFloat(cf.limite_max||0) ? 'inadimplente' : 'ativo';
-  await db.from('clientes_fiado').update({ saldo_usado: novoSaldo, status: novoStatus }).eq('id', cf.id);
-
-  // Fechar pedido
-  await db.from('pedidos').update({ status: 'CONCLUIDO', forma_pagamento: 'Fiado — ID ' + id4 }).eq('id', pedidoFechamentoId);
-  if (mesaFechamentoId && mesaFechamentoId !== 'null' && mesaFechamentoId !== null) {
-    await db.from('mesas').update({ status: 'LIVRE' }).eq('id', mesaFechamentoId);
+  const btnF = document.getElementById('btn-confirmar-fiado');
+  btnF.disabled = true;
+  btnF.textContent = '⏳ Processando...';
+  try {
+    const pedido = pedidosAtuais.find(p => p.id === pedidoFechamentoId);
+    const cpfF = (cf.cpf||'').replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+    const id4 = (cf.cpf||'').replace(/\D/g,'').slice(-4);
+    const agora = new Date();
+    const dtF = agora.toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    const comp = {
+      cliente_id: cf.id, cliente_nome: cf.nome, cliente_cpf: cpfF, cliente_id4: id4,
+      valor: totalFechamento, saldo_antes: cf.saldo_usado,
+      saldo_depois: parseFloat(cf.saldo_usado||0) + totalFechamento,
+      limite: cf.limite_max, itens: _fiadoPedidoItens,
+      pedido_id: pedidoFechamentoId,
+      mesa: pedido ? (pedido.mesa_numero || pedido.nome_comanda || 'Balcão') : '—',
+      data_hora: agora.toISOString(), data_hora_br: dtF
+    };
+    const { error: eTrans } = await db.from('fiado_transacoes').insert([{
+      cliente_id: cf.id, tipo: 'consumo', valor: totalFechamento,
+      descricao: 'Consumo ' + (pedido?.nome_comanda || (pedido?.mesa_numero ? 'Mesa '+pedido.mesa_numero : 'Balcão')),
+      pedido_id: pedidoFechamentoId, mesa: String(pedido?.mesa_numero || ''),
+      data_transacao: agora.toISOString(), comprovante_dados: comp
+    }]);
+    if (eTrans) { toast('Erro ao registrar: ' + eTrans.message, 'err'); btnF.disabled = false; btnF.textContent = '✅ Usar Fiado'; return; }
+    const novoSaldo = parseFloat(cf.saldo_usado||0) + totalFechamento;
+    await db.from('clientes_fiado').update({
+      saldo_usado: novoSaldo,
+      status: novoSaldo >= parseFloat(cf.limite_max||0) ? 'inadimplente' : 'ativo'
+    }).eq('id', cf.id);
+    await db.from('pedidos').update({ status: 'CONCLUIDO', forma_pagamento: 'Fiado — ID ' + id4 }).eq('id', pedidoFechamentoId);
+    if (mesaFechamentoId && mesaFechamentoId !== 'null' && mesaFechamentoId !== null) {
+      await db.from('mesas').update({ status: 'LIVRE' }).eq('id', mesaFechamentoId);
+    }
+    const pFechado = pedidosAtuais.find(p => p.id === pedidoFechamentoId);
+    if (pFechado) descontarEstoque(pFechado.order_details);
+    pedidosConhecidos.delete(pedidoFechamentoId);
+    localStorage.setItem('dz_ped_conhecidos', JSON.stringify(Array.from(pedidosConhecidos)));
+    fecharModal('modal-fiado-id');
+    fecharModal('modal-fechamento');
+    btnF.disabled = false; btnF.textContent = '✅ Usar Fiado';
+    exibirComprovanteFiado(comp);
+    carregarPedidos(); carregarMesasMini();
+  } catch(e) {
+    toast('Erro inesperado: ' + e.message, 'err');
+    btnF.disabled = false; btnF.textContent = '✅ Usar Fiado';
   }
-  const pedidoFechado = pedidosAtuais.find(p => p.id === pedidoFechamentoId);
-  if (pedidoFechado) descontarEstoque(pedidoFechado.order_details);
-  pedidosConhecidos.delete(pedidoFechamentoId);
-  localStorage.setItem('dz_ped_conhecidos', JSON.stringify(Array.from(pedidosConhecidos)));
-
-  fecharModal('modal-fiado-id');
-  fecharModal('modal-fechamento');
-
-  // Mostrar comprovante
-  exibirComprovanteFiado(comprovante);
-  carregarPedidos();
-  carregarMesasMini();
 }
 
 function exibirComprovanteFiado(comp) {
   const itensHtml = (comp.itens||[]).map(i =>
     '<tr><td style="padding:3px 0;">' + (i.qty||1) + 'x ' + (i.name||i.nome||'') + '</td>' +
-    '<td style="text-align:right;padding:3px 0;">' + R((i.price||i.preco||0)*(i.qty||1)) + '</td></tr>'
+    '<td style="text-align:right;">' + R((i.price||i.preco||0)*(i.qty||1)) + '</td></tr>'
   ).join('');
-
-  const dispRestante = Math.max(0, (comp.limite||0) - (comp.saldo_depois||0));
-
+  const disp = Math.max(0, (comp.limite||0) - (comp.saldo_depois||0));
   document.getElementById('comprovante-fiado-html').innerHTML =
     '<div id="comp-fiado-print" style="font-family:monospace;font-size:.82rem;line-height:1.7;">' +
     '<div style="text-align:center;border-bottom:2px dashed var(--borda);padding-bottom:10px;margin-bottom:10px;">' +
     '<div style="font-size:1rem;font-weight:800;color:var(--rosa);">🍽️ Diaz Delicias</div>' +
-    '<div style="color:var(--txt2);font-size:.72rem;">Comprovante de Fiado</div>' +
-    '<div style="color:var(--txt3);font-size:.68rem;">' + comp.data_hora_br + '</div></div>' +
-
+    '<div style="color:var(--txt2);font-size:.72rem;">Comprovante de Fiado · ' + comp.data_hora_br + '</div></div>' +
     '<div style="background:var(--card2);border-radius:8px;padding:10px;margin-bottom:10px;">' +
-    '<div style="color:var(--ouro);font-weight:700;margin-bottom:4px;">👤 Cliente</div>' +
-    '<div>' + comp.cliente_nome + '</div>' +
-    '<div style="color:var(--txt2);font-size:.75rem;">CPF: ' + comp.cliente_cpf + ' · ID: <strong>' + comp.cliente_id4 + '</strong></div>' +
-    '<div style="color:var(--txt2);font-size:.75rem;">Mesa/Comanda: ' + comp.mesa + '</div></div>' +
-
-    '<div style="margin-bottom:10px;">' +
-    '<div style="color:var(--ouro);font-weight:700;margin-bottom:6px;">🛒 Itens</div>' +
-    '<table style="width:100%;border-collapse:collapse;">' + itensHtml + '</table></div>' +
-
-    '<div style="border-top:2px dashed var(--borda);padding-top:10px;margin-bottom:10px;">' +
-    '<div style="display:flex;justify-content:space-between;font-weight:800;font-size:.95rem;">' +
-    '<span>TOTAL LANÇADO</span><span style="color:var(--vermelho);">' + R(comp.valor) + '</span></div>' +
-    '<div style="display:flex;justify-content:space-between;font-size:.78rem;color:var(--txt2);margin-top:4px;">' +
-    '<span>Saldo usado agora</span><span>' + R(comp.saldo_depois) + ' / ' + R(comp.limite) + '</span></div>' +
-    '<div style="display:flex;justify-content:space-between;font-size:.78rem;margin-top:2px;">' +
-    '<span style="color:var(--txt2);">Disponível restante</span>' +
-    '<span style="color:' + (dispRestante>0?'var(--verde)':'var(--vermelho)') + ';font-weight:700;">' + R(dispRestante) + '</span></div></div>' +
-
-    '<div style="text-align:center;font-size:.68rem;color:var(--txt3);border-top:1px dashed var(--borda);padding-top:8px;">' +
-    'Lançamento registrado automaticamente no sistema<br>Diaz Delicias — Fiado #' + comp.cliente_id4 + '</div></div>';
-
+    '<div style="color:var(--ouro);font-weight:700;margin-bottom:4px;">👤 ' + comp.cliente_nome + '</div>' +
+    '<div style="color:var(--txt2);font-size:.75rem;">CPF: ' + comp.cliente_cpf + ' · ID: ' + comp.cliente_id4 + ' · Local: ' + comp.mesa + '</div></div>' +
+    '<table style="width:100%;border-collapse:collapse;margin-bottom:10px;">' + itensHtml + '</table>' +
+    '<div style="border-top:2px dashed var(--borda);padding-top:10px;">' +
+    '<div style="display:flex;justify-content:space-between;font-weight:800;"><span>TOTAL</span><span style="color:var(--vermelho);">' + R(comp.valor) + '</span></div>' +
+    '<div style="display:flex;justify-content:space-between;font-size:.75rem;color:var(--txt2);margin-top:4px;"><span>Saldo usado</span><span>' + R(comp.saldo_depois) + ' / ' + R(comp.limite) + '</span></div>' +
+    '<div style="display:flex;justify-content:space-between;font-size:.75rem;margin-top:2px;"><span style="color:var(--txt2);">Disponível restante</span><span style="color:' + (disp>0?'var(--verde)':'var(--vermelho)') + ';font-weight:700;">' + R(disp) + '</span></div></div></div>';
   document.getElementById('modal-comprovante-fiado').classList.add('show');
 }
 
-function imprimirComprovanteFiado() {
-  const conteudo = document.getElementById('comp-fiado-print');
-  if (!conteudo) return;
-  const w = window.open('', '_blank', 'width=400,height=600');
-  w.document.write('<html><head><title>Comprovante Fiado</title><style>body{font-family:monospace;font-size:13px;padding:16px;background:#fff;color:#000;}table{width:100%;}td{padding:3px 0;}</style></head><body>' + conteudo.innerHTML + '</body></html>');
-  w.document.close();
-  w.print();
+function verComprovanteFiado(btn) {
+  try { exibirComprovanteFiado(JSON.parse(decodeURIComponent(btn.dataset.comp))); } catch(e) {}
 }
 
-function verComprovanteFiado(btnOrComp) {
-  let comp = btnOrComp;
-  if (btnOrComp && btnOrComp.dataset && btnOrComp.dataset.comp) {
-    try { comp = JSON.parse(decodeURIComponent(btnOrComp.dataset.comp)); } catch(e) { return; }
-  } else if (typeof comp === 'string') {
-    try { comp = JSON.parse(comp); } catch(e) { return; }
-  }
-  exibirComprovanteFiado(comp);
+function imprimirComprovanteFiado() {
+  const c = document.getElementById('comp-fiado-print');
+  if (!c) return;
+  const w = window.open('','_blank','width=400,height=600');
+  w.document.write('<html><head><title>Comprovante Fiado</title><style>body{font-family:monospace;font-size:13px;padding:16px;background:#fff;color:#000;}table{width:100%;}td{padding:3px 0;}</style></head><body>' + c.innerHTML + '</body></html>');
+  w.document.close(); w.print();
 }
 
 async function registrarConsumoFiado(clienteId, valor, descricao, pedidoId, mesa) {
