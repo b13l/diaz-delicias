@@ -728,7 +728,7 @@ function atualizarStatusNotif() {
   if (!('Notification' in window)) { el.textContent = '⚠️ Notificações não suportadas'; return; }
   const ativo = localStorage.getItem('fiado_notif_ativo') === 'true';
   if (!ativo) { el.textContent = 'Notificações desativadas'; el.style.color = 'var(--txt3)'; return; }
-  if (Notification.permission === 'granted') { el.textContent = '✅ Notificações ativas'; el.style.color = 'var(--verde)'; }
+  if (Notification.permission === 'granted') { el.textContent = '✅ Notificações ativas e funcionando'; el.style.color = 'var(--verde)'; }
   else if (Notification.permission === 'denied') {
     el.innerHTML = '🔴 <strong>Permissão bloqueada pelo navegador.</strong><br><span style="font-size:.68rem;color:var(--txt2);">No Chrome: toque no 🔒 na barra de endereço → Permissões do site → Notificações → Permitir.<br>No Firefox: Menu → Configurações → Privacidade → Notificações.</span>';
     el.style.color = 'var(--vermelho)';
@@ -765,21 +765,67 @@ async function verificarNotificacaoVencimento() {
   n.onclick = () => { window.focus(); n.close(); };
 }
 
-function testarNotificacao() {
-  if (Notification.permission === 'denied') {
-    const el = document.getElementById('notif-status-txt');
-    if (el) {
-      el.innerHTML = '🔴 <strong>Permissão bloqueada.</strong><br><span style="font-size:.68rem;color:var(--txt2);">Acesse as configurações do seu navegador e permita notificações para este site.<br>Chrome: 🔒 na barra → Notificações → Permitir</span>';
-      el.style.color = 'var(--vermelho)';
-    }
-    toast('Permissão bloqueada. Veja as instruções abaixo.','err');
+async function testarNotificacao() {
+  const el = document.getElementById('notif-status-txt');
+
+  // Sem suporte
+  if (!('Notification' in window)) {
+    toast('Notificações não suportadas neste navegador','err');
     return;
   }
-  solicitarPermissaoNotificacao().then(ok => {
-    if (!ok) { toast('Permissão não concedida','err'); return; }
-    new Notification('🧪 Diaz Delicias', { body: 'Notificações funcionando! ✅', tag: 'fiado-teste' });
-    toast('Notificação enviada!');
-  });
+
+  // Já permitido — disparar direto
+  if (Notification.permission === 'granted') {
+    try {
+      // Tentar via Service Worker primeiro (funciona em PWA/mobile)
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.ready.then(reg => {
+          reg.showNotification('🧪 Diaz Delicias', {
+            body: 'Notificações funcionando! ✅',
+            tag: 'fiado-teste',
+            icon: '/icons/icon-192.png'
+          });
+        });
+      } else {
+        new Notification('🧪 Diaz Delicias', { body: 'Notificações funcionando! ✅', tag: 'fiado-teste' });
+      }
+      toast('✅ Notificação enviada!');
+      if (el) { el.textContent = '✅ Notificações ativas'; el.style.color = 'var(--verde)'; }
+    } catch(e) {
+      toast('Erro ao enviar notificação: ' + e.message,'err');
+    }
+    return;
+  }
+
+  // Bloqueado — instruções
+  if (Notification.permission === 'denied') {
+    if (el) {
+      el.innerHTML = '🔴 <strong>Permissão bloqueada pelo navegador.</strong><br>'
+        + '<span style="font-size:.68rem;color:var(--txt2);">Chrome: toque no 🔒 na barra de endereço → <b>Configurações do site</b> → <b>Notificações</b> → <b>Permitir</b>.<br>'
+        + 'Depois recarregue a página e teste novamente.</span>';
+      el.style.color = 'var(--vermelho)';
+    }
+    toast('Permissão bloqueada — veja as instruções','err');
+    return;
+  }
+
+  // Ainda não pediu (default) — solicitar agora
+  const perm = await Notification.requestPermission();
+  atualizarStatusNotif();
+  if (perm === 'granted') {
+    try {
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.ready.then(reg => {
+          reg.showNotification('🧪 Diaz Delicias', { body: 'Notificações funcionando! ✅', tag: 'fiado-teste', icon: '/icons/icon-192.png' });
+        });
+      } else {
+        new Notification('🧪 Diaz Delicias', { body: 'Notificações funcionando! ✅', tag: 'fiado-teste' });
+      }
+      toast('✅ Notificação enviada!');
+    } catch(e) { toast('Erro: ' + e.message,'err'); }
+  } else {
+    toast('Permissão não concedida','err');
+  }
 }
 
 // ==================== PWA INSTALAÇÃO ====================
