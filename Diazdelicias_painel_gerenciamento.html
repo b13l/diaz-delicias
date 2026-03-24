@@ -3980,12 +3980,49 @@ async function abrirDetalheFiado(id) {
   const tHTML = (trans && trans.length) ? trans.map(t => {
     const cor2 = t.tipo==='pagamento'?'var(--verde)':'var(--vermelho)', sinal = t.tipo==='pagamento'?'+':'-';
     const dt = new Date(t.data_transacao).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
-    const cBtn = (t.comprovante_dados && t.tipo==='consumo') ? '<button onclick="verComprovanteFiado(this)" data-comp="'+encodeURIComponent(JSON.stringify(t.comprovante_dados))+'" style="background:rgba(255,183,3,.15);color:var(--ouro);border:1px solid var(--ouro);border-radius:5px;padding:2px 8px;font-size:.68rem;cursor:pointer;margin-top:3px;">🧾 Comprovante</button>' : '';
-    return `<div class="trans-row"><div><div style="font-weight:600;">${t.descricao||(t.tipo==='pagamento'?'Pagamento':'Consumo')}</div><div style="font-size:.7rem;color:var(--txt2);">${dt}${t.mesa?' · Mesa '+t.mesa:''}</div>${cBtn}</div><div style="font-weight:800;color:${cor2};white-space:nowrap;">${sinal}${R(t.valor)}</div></div>`;
+    const saComp = t.comprovante_dados?.status_analise || null;
+    const badgeComp = saComp === 'aguardando'
+      ? '<span style="background:rgba(255,183,3,.18);color:var(--ouro);border:1px solid var(--ouro);border-radius:4px;font-size:.62rem;font-weight:700;padding:1px 6px;margin-right:4px;">⏳ Aguardando</span>'
+      : saComp === 'aprovado'
+      ? '<span style="background:rgba(0,230,118,.18);color:var(--verde);border:1px solid var(--verde);border-radius:4px;font-size:.62rem;font-weight:700;padding:1px 6px;margin-right:4px;">✅ Aprovado</span>'
+      : saComp === 'recusado'
+      ? '<span style="background:rgba(255,71,87,.18);color:var(--vermelho);border:1px solid var(--vermelho);border-radius:4px;font-size:.62rem;font-weight:700;padding:1px 6px;margin-right:4px;">❌ Recusado</span>'
+      : '';
+    const btnAprovarRecusar = (t.tipo === 'pagamento' && saComp === 'aguardando')
+      ? '<button class="btn-aprovar-comp" data-tid="' + t.id + '" data-val="' + t.valor + '" data-cid="' + t.cliente_id + '" style="background:rgba(0,230,118,.15);color:var(--verde);border:1px solid var(--verde);border-radius:5px;padding:2px 8px;font-size:.65rem;cursor:pointer;font-weight:700;">✅ Aprovar</button>'
+        + '<button class="btn-recusar-comp" data-tid="' + t.id + '" style="background:rgba(255,71,87,.15);color:var(--vermelho);border:1px solid var(--vermelho);border-radius:5px;padding:2px 8px;font-size:.65rem;cursor:pointer;font-weight:700;">❌ Recusar</button>'
+      : '';
+    const cBtn = t.comprovante_dados
+      ? '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;align-items:center;">'
+          + badgeComp
+          + '<button class="btn-ver-comp" data-comp="' + encodeURIComponent(JSON.stringify(t.comprovante_dados)) + '" style="background:rgba(76,201,240,.12);color:var(--azul);border:1px solid var(--azul);border-radius:5px;padding:2px 8px;font-size:.65rem;cursor:pointer;">'
+          + (t.tipo === 'consumo' ? '🧾 Comprovante' : '📤 Ver Comprovante')
+          + '</button>'
+          + btnAprovarRecusar
+          + '</div>'
+      : '';    return `<div class="trans-row"><div><div style="font-weight:600;">${t.descricao||(t.tipo==='pagamento'?'Pagamento':'Consumo')}</div><div style="font-size:.7rem;color:var(--txt2);">${dt}${t.mesa?' · Mesa '+t.mesa:''}</div>${cBtn}</div><div style="font-weight:800;color:${cor2};white-space:nowrap;">${sinal}${R(t.valor)}</div></div>`;
   }).join('') : '<div style="color:var(--txt3);text-align:center;padding:14px;font-size:.82rem;">Nenhuma movimentação</div>';
 
   document.getElementById('fiado-det-trans').innerHTML = `
     <div style="font-size:.75rem;font-weight:700;color:var(--txt2);text-transform:uppercase;margin-bottom:8px;">📋 Movimentações</div>${tHTML}`;
+
+  // Event delegation permanente — registrado uma única vez por abertura do modal
+  const _detTrans = document.getElementById('fiado-det-trans');
+  if (!_detTrans._listenerAtivo) {
+    _detTrans._listenerAtivo = true;
+    _detTrans.addEventListener('click', function(e) {
+      const btnVer = e.target.closest('.btn-ver-comp');
+      const btnAprovar = e.target.closest('.btn-aprovar-comp');
+      const btnRecusar = e.target.closest('.btn-recusar-comp');
+      if (btnVer) {
+        try { verComprovanteFiado(btnVer); } catch(err) {}
+      } else if (btnAprovar) {
+        aprovarPagamentoComprovante(btnAprovar.dataset.tid, parseFloat(btnAprovar.dataset.val), btnAprovar.dataset.cid);
+      } else if (btnRecusar) {
+        recusarPagamentoComprovante(btnRecusar.dataset.tid);
+      }
+    });
+  }
 
   document.getElementById('modal-fiado-detalhe').classList.add('show');
 }
@@ -4087,6 +4124,51 @@ async function confirmarPagamentoFiado() {
   fecharModal('modal-fiado-pgto');
   carregarClientesFiado();
   toast('✅ Pagamento de ' + R(valor) + ' registrado!');
+}
+
+// ===== APROVAR / RECUSAR COMPROVANTE DE PAGAMENTO =====
+async function aprovarPagamentoComprovante(transacaoId, valor, clienteId) {
+  if (!confirm('✅ Confirmar aprovação de ' + R(valor) + '?\nO crédito será liberado no limite do cliente.')) return;
+
+  // 1. Buscar cliente atualizado
+  const { data: c } = await db.from('clientes_fiado').select('*').eq('id', clienteId).single();
+  if (!c) { toast('Cliente não encontrado', 'err'); return; }
+
+  const novoSaldo = Math.max(0, parseFloat(c.saldo_usado || 0) - valor);
+  const novoStatus = novoSaldo === 0 ? 'ativo' : (c.status === 'inadimplente' ? 'ativo' : c.status);
+
+  // 2. Atualizar status_analise da transação para 'aprovado'
+  const { data: tAtual } = await db.from('fiado_transacoes').select('comprovante_dados').eq('id', transacaoId).single();
+  if (tAtual?.comprovante_dados) {
+    const novoComp = { ...tAtual.comprovante_dados, status_analise: 'aprovado' };
+    await db.from('fiado_transacoes').update({ comprovante_dados: novoComp }).eq('id', transacaoId);
+  }
+
+  // 3. Debitar saldo do cliente
+  const { error: e2 } = await db.from('clientes_fiado').update({
+    saldo_usado: novoSaldo, status: novoStatus
+  }).eq('id', clienteId);
+
+  if (e2) { toast('Erro ao atualizar saldo', 'err'); return; }
+
+  toast('✅ Pagamento de ' + R(valor) + ' aprovado! Crédito liberado. Saldo em aberto: ' + R(novoSaldo));
+  carregarClientesFiado();
+  // Reabrir detalhes do cliente
+  setTimeout(() => { if (fiadoDetalheId) abrirDetalheFiado(fiadoDetalheId); }, 600);
+}
+
+async function recusarPagamentoComprovante(transacaoId) {
+  if (!confirm('Recusar este comprovante?\nO saldo não será alterado.')) return;
+
+  const { data: tAtual } = await db.from('fiado_transacoes').select('comprovante_dados').eq('id', transacaoId).single();
+  if (tAtual?.comprovante_dados) {
+    const novoComp = { ...tAtual.comprovante_dados, status_analise: 'recusado' };
+    await db.from('fiado_transacoes').update({ comprovante_dados: novoComp }).eq('id', transacaoId);
+  }
+
+  toast('❌ Comprovante recusado. Saldo não alterado.');
+  carregarClientesFiado();
+  setTimeout(() => { if (fiadoDetalheId) abrirDetalheFiado(fiadoDetalheId); }, 600);
 }
 
 // ===== APROVAR / RECUSAR / DEFINIR LIMITE =====
@@ -4306,6 +4388,22 @@ async function confirmarPagamentoFiadoModal() {
 }
 
 function exibirComprovanteFiado(comp) {
+  // Comprovante de PAGAMENTO (enviado pelo cliente via app)
+  if (comp.url !== undefined || (comp.obs !== undefined && !comp.itens)) {
+    document.getElementById('comprovante-fiado-html').innerHTML =
+      '<div id="comp-fiado-print" style="font-family:monospace;font-size:.85rem;line-height:1.8;">' +
+      '<div style="text-align:center;border-bottom:2px dashed var(--borda);padding-bottom:10px;margin-bottom:14px;">' +
+      '<div style="font-size:1rem;font-weight:800;color:var(--rosa);">📤 Comprovante de Pagamento</div>' +
+      '<div style="color:var(--txt2);font-size:.72rem;">Enviado pelo cliente para análise</div></div>' +
+      (comp.url ? '<img src="' + comp.url + '" style="width:100%;border-radius:10px;border:1px solid var(--borda);margin-bottom:12px;">' :
+        '<div style="text-align:center;color:var(--txt2);padding:20px 0;">⚠️ Sem imagem anexada</div>') +
+      '<div style="background:var(--card2);border-radius:8px;padding:10px;margin-top:6px;">' +
+      '<div style="color:var(--txt2);font-size:.78rem;"><b>Observação:</b> ' + (comp.obs || 'Nenhuma') + '</div></div>' +
+      '</div>';
+    document.getElementById('modal-comprovante-fiado').classList.add('show');
+    return;
+  }
+  // Comprovante de CONSUMO (gerado pelo sistema)
   const itensHtml = (comp.itens||[]).map(i =>
     '<tr><td style="padding:3px 0;">' + (i.qty||1) + 'x ' + (i.name||i.nome||'') + '</td>' +
     '<td style="text-align:right;">' + R((i.price||i.preco||0)*(i.qty||1)) + '</td></tr>'
