@@ -1,4 +1,4 @@
-const CACHE = 'diaz-fiado-v3';
+const CACHE = 'diaz-fiado-v4';
 
 self.addEventListener('install', e => {
   e.waitUntil(
@@ -21,7 +21,6 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   if (!e.request.url.startsWith('http')) return;
-
   e.respondWith(
     fetch(e.request)
       .then(resp => {
@@ -32,5 +31,29 @@ self.addEventListener('fetch', e => {
         return resp;
       })
       .catch(() => caches.match(e.request))
+  );
+});
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      for (const client of list) {
+        if (client.url && 'focus' in client) return client.focus();
+      }
+      if (clients.openWindow) return clients.openWindow('./DiazDelicias_Fiado.html');
+    })
+  );
+});
+
+self.addEventListener('push', e => {
+  const data = e.data ? e.data.json() : { title: 'Diaz Delicias', body: 'Voce tem um aviso de fiado.' };
+  e.waitUntil(
+    self.registration.showNotification(data.title || 'Diaz Delicias', {
+      body: data.body || '',
+      icon: './icons/icon-192.png',
+      badge: './icons/icon-192.png',
+      tag: data.tag || 'fiado-push'
+    })
   );
 });
