@@ -768,6 +768,111 @@ async function verificarNotificacaoVencimento() {
 async function testarNotificacao() {
   const el = document.getElementById('notif-status-txt');
 
+  if (!('Notification' in window)) {
+    toast('Notificações não suportadas neste navegador','err');
+    return;
+  }
+
+  // Ativar automaticamente no localStorage
+  localStorage.setItem('fiado_notif_ativo', 'true');
+  const cb = document.getElementById('notif-ativo');
+  if (cb) cb.checked = true;
+  const area = document.getElementById('notif-config-area');
+  if (area) area.style.display = 'block';
+
+  const _saldo = clienteLogado ? R(parseFloat(clienteLogado.saldo_usado||0)) : 'R$ 0,00';
+  const _dias = clienteLogado ? clienteLogado.dia_vencimento : '??';
+  const _titulo = '⏰ Diaz Delicias — Fiado';
+  const _corpo = 'Seu fiado vence no dia ' + _dias + '! Saldo em aberto: ' + _saldo + '. Toque para ver.';
+
+  const dispararNotificacao = async () => {
+    try {
+      // PWA/Android: usar Service Worker
+      if ('serviceWorker' in navigator) {
+        const reg = await navigator.serviceWorker.ready;
+        await reg.showNotification(_titulo, { body: _corpo, tag: 'fiado-teste', icon: '/icons/icon-192.png', badge: '/icons/icon-192.png' });
+        toast('✅ Notificação enviada!');
+        if (el) { el.textContent = '✅ Notificações ativas e funcionando'; el.style.color = 'var(--verde)'; }
+        return true;
+      }
+      // Fallback: Notification direta
+      const n = new Notification(_titulo, { body: _corpo, tag: 'fiado-teste' });
+      n.onclick = () => { window.focus(); n.close(); };
+      toast('✅ Notificação enviada!');
+      if (el) { el.textContent = '✅ Notificações ativas e funcionando'; el.style.color = 'var(--verde)'; }
+      return true;
+    } catch(e) {
+      toast('Erro: ' + e.message, 'err');
+      return false;
+    }
+  };
+
+  // Se já garantido — disparar direto
+  if (Notification.permission === 'granted') {
+    await dispararNotificacao();
+    return;
+  }
+
+  // Bloqueado explicitamente
+  if (Notification.permission === 'denied') {
+    if (el) {
+      el.innerHTML = '🔴 <strong>Permissão bloqueada.</strong><br>'
+        + '<span style="font-size:.68rem;color:var(--txt2);">Chrome Android: Menu ⋮ → Configurações → Configurações do site → Notificações → encontre este site → Permitir.<br>Depois feche e abra o app novamente.</span>';
+      el.style.color = 'var(--vermelho)';
+    }
+    toast('Permissão bloqueada — veja as instruções', 'err');
+    return;
+  }
+
+  // Default — pedir permissão e disparar independente do resultado no Android
+  try {
+    const perm = await Notification.requestPermission();
+    atualizarStatusNotif();
+    // No Android PWA, mesmo que retorne 'default', o SW pode enviar — tentar de qualquer forma
+    if (perm === 'denied') {
+      toast('Permissão negada', 'err');
+      return;
+    }
+    await dispararNotificacao();
+  } catch(e) {
+    // requestPermission falhou — tentar enviar direto via SW mesmo assim
+    await dispararNotificacao();
+  }
+}
+
+
+async function solicitarPermissaoNotificacao() {
+  if (!('Notification' in window)) return false;
+  if (Notification.permission === 'granted') return true;
+  if (Notification.permission === 'denied') return false;
+  const p = await Notification.requestPermission();
+  atualizarStatusNotif();
+  return p === 'granted';
+}
+
+async function verificarNotificacaoVencimento() {
+  if (!clienteLogado || !('Notification' in window)) return;
+  if (Notification.permission !== 'granted') return;
+  if (localStorage.getItem('fiado_notif_ativo') !== 'true') return;
+  const diasCfg = parseInt(localStorage.getItem('fiado_notif_dias') || '5');
+  const hoje = new Date();
+  let proxVenc = new Date(hoje.getFullYear(),hoje.getMonth(),clienteLogado.dia_vencimento);
+  if (proxVenc <= hoje) proxVenc = new Date(hoje.getFullYear(),hoje.getMonth()+1,clienteLogado.dia_vencimento);
+  const diasAte = Math.ceil((proxVenc-hoje)/86400000);
+  if (diasAte > diasCfg || parseFloat(clienteLogado.saldo_usado||0) <= 0) return;
+  const hoje_str = hoje.toISOString().split('T')[0];
+  if (localStorage.getItem('fiado_ultima_notif') === hoje_str) return;
+  localStorage.setItem('fiado_ultima_notif', hoje_str);
+  const n = new Notification('⏰ Diaz Delicias — Fiado', {
+    body: 'Seu fiado vence em '+diasAte+' dia(s)! Saldo: '+R(clienteLogado.saldo_usado)+'. Toque para ver.',
+    tag: 'fiado-vencimento'
+  });
+  n.onclick = () => { window.focus(); n.close(); };
+}
+
+async function testarNotificacao() {
+  const el = document.getElementById('notif-status-txt');
+
   // Sem suporte
   if (!('Notification' in window)) {
     toast('Notificações não suportadas neste navegador','err');
