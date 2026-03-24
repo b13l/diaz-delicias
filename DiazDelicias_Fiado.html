@@ -733,7 +733,7 @@ function atualizarStatusNotif() {
     el.innerHTML = '🔴 <strong>Permissão bloqueada pelo navegador.</strong><br><span style="font-size:.68rem;color:var(--txt2);">No Chrome: toque no 🔒 na barra de endereço → Permissões do site → Notificações → Permitir.<br>No Firefox: Menu → Configurações → Privacidade → Notificações.</span>';
     el.style.color = 'var(--vermelho)';
   }
-  else { el.textContent = '⏳ Aguardando permissão'; }
+  else { el.textContent = '⏳ Clique em "Testar" para ativar as notificações'; el.style.color = 'var(--ouro)'; }
 }
 
 async function solicitarPermissaoNotificacao() {
@@ -774,23 +774,30 @@ async function testarNotificacao() {
     return;
   }
 
+  // Ativar automaticamente no localStorage ao testar
+  localStorage.setItem('fiado_notif_ativo', 'true');
+  const cb = document.getElementById('notif-ativo');
+  if (cb) cb.checked = true;
+  const area = document.getElementById('notif-config-area');
+  if (area) area.style.display = 'block';
+
   // Já permitido — disparar direto
   if (Notification.permission === 'granted') {
     try {
-      // Tentar via Service Worker primeiro (funciona em PWA/mobile)
+      const _saldo = clienteLogado ? R(parseFloat(clienteLogado.saldo_usado||0)) : 'R$ 0,00';
+      const _dias = clienteLogado ? clienteLogado.dia_vencimento : '??';
+      const _titulo = '⏰ Diaz Delicias — Fiado';
+      const _corpo = 'Seu fiado vence no dia ' + _dias + '! Saldo em aberto: ' + _saldo + '. Toque para ver.';
       if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
         navigator.serviceWorker.ready.then(reg => {
-          reg.showNotification('🧪 Diaz Delicias', {
-            body: 'Notificações funcionando! ✅',
-            tag: 'fiado-teste',
-            icon: '/icons/icon-192.png'
-          });
+          reg.showNotification(_titulo, { body: _corpo, tag: 'fiado-teste', icon: '/icons/icon-192.png' });
         });
       } else {
-        new Notification('🧪 Diaz Delicias', { body: 'Notificações funcionando! ✅', tag: 'fiado-teste' });
+        const n = new Notification(_titulo, { body: _corpo, tag: 'fiado-teste' });
+        n.onclick = () => { window.focus(); n.close(); };
       }
       toast('✅ Notificação enviada!');
-      if (el) { el.textContent = '✅ Notificações ativas'; el.style.color = 'var(--verde)'; }
+      if (el) { el.textContent = '✅ Notificações ativas e funcionando'; el.style.color = 'var(--verde)'; }
     } catch(e) {
       toast('Erro ao enviar notificação: ' + e.message,'err');
     }
@@ -814,12 +821,17 @@ async function testarNotificacao() {
   atualizarStatusNotif();
   if (perm === 'granted') {
     try {
+      const _saldo2 = clienteLogado ? R(parseFloat(clienteLogado.saldo_usado||0)) : 'R$ 0,00';
+      const _dias2 = clienteLogado ? clienteLogado.dia_vencimento : '??';
+      const _titulo2 = '⏰ Diaz Delicias — Fiado';
+      const _corpo2 = 'Seu fiado vence no dia ' + _dias2 + '! Saldo em aberto: ' + _saldo2 + '. Toque para ver.';
       if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
         navigator.serviceWorker.ready.then(reg => {
-          reg.showNotification('🧪 Diaz Delicias', { body: 'Notificações funcionando! ✅', tag: 'fiado-teste', icon: '/icons/icon-192.png' });
+          reg.showNotification(_titulo2, { body: _corpo2, tag: 'fiado-teste', icon: '/icons/icon-192.png' });
         });
       } else {
-        new Notification('🧪 Diaz Delicias', { body: 'Notificações funcionando! ✅', tag: 'fiado-teste' });
+        const n2 = new Notification(_titulo2, { body: _corpo2, tag: 'fiado-teste' });
+        n2.onclick = () => { window.focus(); n2.close(); };
       }
       toast('✅ Notificação enviada!');
     } catch(e) { toast('Erro: ' + e.message,'err'); }
