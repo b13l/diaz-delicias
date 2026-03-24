@@ -152,7 +152,14 @@ html,body{background:var(--bg);color:var(--txt);font-family:'Segoe UI',system-ui
 <div class="tela" id="tela-conta">
   <div class="card">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-      <div style="width:46px;height:46px;border-radius:50%;background:var(--rosa-esc);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0;">👤</div>
+      <div id="conta-avatar-wrap" onclick="document.getElementById('inp-avatar').click()"
+           style="width:62px;height:62px;border-radius:50%;background:var(--rosa-esc);display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0;cursor:pointer;position:relative;border:2.5px solid #ff2d78;box-shadow:0 0 12px #ff2d78aa,0 0 24px #ff2d7855;overflow:hidden;transition:box-shadow .3s;"
+           title="Toque para alterar foto de perfil">
+        <span id="conta-avatar-iniciais" style="color:#fff;font-weight:900;font-size:1.2rem;letter-spacing:1px;">👤</span>
+        <img id="conta-avatar-img" src="" alt="" style="display:none;width:100%;height:100%;object-fit:cover;position:absolute;inset:0;">
+        <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(255,45,120,.7);text-align:center;font-size:.5rem;color:#fff;font-weight:700;padding:2px 0;">📷 foto</div>
+      </div>
+      <input type="file" id="inp-avatar" accept="image/*" capture="user" style="display:none" onchange="uploadAvatarCliente(this)">
       <div style="flex:1;">
         <div style="font-weight:800;font-size:1rem;" id="conta-nome-display">—</div>
         <div style="font-size:.72rem;color:var(--txt2);margin-top:2px;" id="conta-info-display">—</div>
@@ -395,10 +402,29 @@ async function mostrarConta() {
   const { data } = await db.from('clientes_fiado').select('*').eq('id',clienteLogado.id).single();
   if (data) clienteLogado = data;
 
-  document.getElementById('conta-nome-display').textContent = clienteLogado.nome;
-  document.getElementById('conta-info-display').textContent =
+  const _cpf4 = (clienteLogado.cpf || '').replace(/\D/g,'').slice(-4);
+  document.getElementById('conta-nome-display').innerHTML =
+    clienteLogado.nome +
+    (_cpf4 ? ' <span style="background:linear-gradient(135deg,#ff2d78,#ff6eb4);color:#fff;font-size:.62rem;font-weight:900;padding:2px 9px;border-radius:20px;letter-spacing:1px;box-shadow:0 0 10px #ff2d78,0 0 20px #ff2d78aa;vertical-align:middle;margin-left:6px;">ID ' + _cpf4 + '</span>' : '');
+
+  // Iniciais do nome como fallback avatar
+  const _iniciais = clienteLogado.nome.trim().split(' ').filter(Boolean).map(p=>p[0].toUpperCase()).slice(0,2).join('');
+  document.getElementById('conta-avatar-iniciais').textContent = _iniciais || '👤';
+
+  // Carregar foto de perfil se existir
+  if (clienteLogado.avatar_url) {
+    const img = document.getElementById('conta-avatar-img');
+    img.src = clienteLogado.avatar_url;
+    img.style.display = 'block';
+    document.getElementById('conta-avatar-iniciais').style.display = 'none';
+  } else {
+    document.getElementById('conta-avatar-img').style.display = 'none';
+    document.getElementById('conta-avatar-iniciais').style.display = 'flex';
+  }
+  document.getElementById('conta-info-display').innerHTML =
     clienteLogado.periodicidade.charAt(0).toUpperCase()+clienteLogado.periodicidade.slice(1)+
-    ' • Venc. dia '+clienteLogado.dia_vencimento+' • '+clienteLogado.forma_pagamento;
+    ' • Venc. dia '+clienteLogado.dia_vencimento+' • '+clienteLogado.forma_pagamento +
+    (_cpf4 ? '<div style="margin-top:5px;font-size:.7rem;color:#ff6eb4;font-weight:700;letter-spacing:.3px;">🪪 Seu ID de acesso são os <span style=\'color:#fff;background:linear-gradient(135deg,#ff2d78,#ff6eb4);padding:1px 7px;border-radius:10px;box-shadow:0 0 8px #ff2d78aa;font-weight:900;\'>4 últimos dígitos do CPF</span></div>' : '');
 
   const badge = document.getElementById('conta-badge');
   const stMap = {ativo:'badge-ativo',pendente:'badge-pendente',bloqueado:'badge-bloqueado'};
@@ -438,12 +464,21 @@ async function mostrarConta() {
     ext.innerHTML = movs.map(m => {
       const d = new Date(m.data_transacao).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
       const isC = m.tipo==='consumo';
+      const statusAnalise = m.comprovante_dados?.status_analise || null;
+      const statusBadge = statusAnalise === 'aguardando'
+        ? '<span style="background:rgba(255,183,3,.18);color:var(--ouro);border:1px solid var(--ouro);border-radius:4px;font-size:.65rem;font-weight:700;padding:1px 7px;margin-left:6px;">⏳ Aguardando análise</span>'
+        : statusAnalise === 'aprovado'
+        ? '<span style="background:rgba(0,230,118,.18);color:var(--verde);border:1px solid var(--verde);border-radius:4px;font-size:.65rem;font-weight:700;padding:1px 7px;margin-left:6px;">✅ Aprovado</span>'
+        : statusAnalise === 'recusado'
+        ? '<span style="background:rgba(255,71,87,.18);color:var(--vermelho);border:1px solid var(--vermelho);border-radius:4px;font-size:.65rem;font-weight:700;padding:1px 7px;margin-left:6px;">❌ Recusado</span>'
+        : '';
       const compBtn = (m.comprovante_dados && isC)
         ? '<button onclick="verDetalheConsumo(this)" data-comp="'+encodeURIComponent(JSON.stringify(m.comprovante_dados))+'" style="background:rgba(255,183,3,.12);color:var(--ouro);border:1px solid var(--ouro);border-radius:5px;padding:2px 8px;font-size:.68rem;cursor:pointer;margin-top:4px;display:inline-block;">🧾 Ver Comprovante</button>'
         : '';
       return '<div class="mov-row">'+
         '<div>'+
           '<span class="mov-tipo '+(isC?'mov-consumo':'mov-pagamento')+'">'+(isC?'🛒 Consumo':'💳 Pagamento')+'</span>'+
+          statusBadge+
           (m.descricao?'<div style="font-size:.75rem;color:var(--txt2);margin-top:3px;">'+m.descricao+'</div>':'')+
           '<div style="font-size:.7rem;color:var(--txt3);">'+d+'</div>'+
           compBtn+
@@ -455,6 +490,43 @@ async function mostrarConta() {
   }
   carregarConfigNotif();
   verificarNotificacaoVencimento();
+}
+
+async function uploadAvatarCliente(input) {
+  const file = input.files[0];
+  if (!file || !clienteLogado) return;
+
+  const wrap = document.getElementById('conta-avatar-wrap');
+  wrap.style.opacity = '0.5';
+  wrap.style.pointerEvents = 'none';
+  toast('📷 Enviando foto...', 'info');
+
+  const ext = file.name.split('.').pop();
+  const nomeArq = 'avatar_' + clienteLogado.id + '_' + Date.now() + '.' + ext;
+
+  const { error: upErr } = await db.storage.from('avatares-fiado').upload(nomeArq, file, { contentType: file.type, upsert: true });
+  if (upErr) {
+    toast('Erro ao enviar foto', 'err');
+    wrap.style.opacity = '1';
+    wrap.style.pointerEvents = 'auto';
+    return;
+  }
+
+  const { data: ud } = db.storage.from('avatares-fiado').getPublicUrl(nomeArq);
+  const url = ud?.publicUrl || null;
+  if (!url) { toast('Erro ao obter URL da foto', 'err'); return; }
+
+  await db.from('clientes_fiado').update({ avatar_url: url }).eq('id', clienteLogado.id);
+  clienteLogado.avatar_url = url;
+
+  const img = document.getElementById('conta-avatar-img');
+  img.src = url + '?t=' + Date.now();
+  img.style.display = 'block';
+  document.getElementById('conta-avatar-iniciais').style.display = 'none';
+  wrap.style.opacity = '1';
+  wrap.style.pointerEvents = 'auto';
+  wrap.style.boxShadow = '0 0 18px #ff2d78,0 0 36px #ff2d7888';
+  toast('✅ Foto de perfil atualizada!');
 }
 
 function sair() {
@@ -605,8 +677,13 @@ async function enviarComprovantePagamento() {
   let urlComp = null;
   const { data: upData, error: upErr } = await db.storage.from('comprovantes-fiado').upload(nomeArq, file, { contentType: file.type, upsert: false });
   if (!upErr) { const { data: ud } = db.storage.from('comprovantes-fiado').getPublicUrl(nomeArq); urlComp = ud?.publicUrl || null; }
+  // Buscar saldo atualizado direto do BD
+  const { data: cliAtual } = await db.from('clientes_fiado').select('saldo_usado').eq('id', clienteLogado.id).single();
+  const valorEmAberto = parseFloat(cliAtual?.saldo_usado || clienteLogado.saldousado || 0);
+
   const { error: tErr } = await db.from('fiado_transacoes').insert([{
-    cliente_id: clienteLogado.id, tipo: 'comprovante_enviado', valor: 0,
+    cliente_id: clienteLogado.id, tipo: 'pagamento',
+    valor: valorEmAberto,
     descricao: obs || 'Comprovante de pagamento enviado',
     data_transacao: new Date().toISOString(),
     comprovante_dados: { url: urlComp, obs, status_analise: 'aguardando', cliente_nome: clienteLogado.nome }
