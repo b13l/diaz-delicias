@@ -711,55 +711,64 @@ async function verificarNotificacaoVencimento() {
 }
 
 async function testarNotificacao() {
-  // Verificar estado atual da permissão
-  const estado = Notification.permission;
+  // Usar OneSignal como método principal (funciona melhor em PWA instalado)
+  if (window.OneSignalDeferred) {
+    OneSignalDeferred.push(async function(OneSignal) {
+      try {
+        // Pedir permissão pelo OneSignal
+        const granted = await OneSignal.Notifications.requestPermission();
 
-  if (estado === 'denied') {
-    toast('🚫 Notificações bloqueadas. Libere nas configurações do navegador/celular.','err');
-    return;
-  }
+        if (!granted) {
+          // Tentar via nativo como fallback
+          const nativo = await Notification.requestPermission();
+          if (nativo !== 'granted') {
+            toast('⚠️ Para receber alertas: Configurações do celular → Apps → Chrome → Notificações → Ativar', 'err');
+            return;
+          }
+        }
 
-  if (estado === 'default') {
-    // Pedir permissão nativamente
-    const resultado = await Notification.requestPermission();
-    if (resultado !== 'granted') {
-      toast('⚠️ Permissão negada. Ative nas configurações do Chrome.','err');
-      return;
-    }
-  }
+        // Vincular CPF no OneSignal
+        if (clienteLogado) {
+          const cpfLimpo = (clienteLogado.cpf || '').replace(/\D/g, '');
+          if (cpfLimpo) {
+            try { await OneSignal.login(cpfLimpo); } catch(e) {}
+          }
+        }
 
-  // Permissão concedida — disparar notificação local imediatamente
-  try {
-    const reg = await navigator.serviceWorker.ready;
-    await reg.showNotification('🧪 Diaz Delicias — Fiado', {
-      body: 'Notificações funcionando! ✅ Você receberá alertas de vencimento automaticamente.',
-      icon: 'https://b13l.github.io/icon-192.png',
-      badge: 'https://b13l.github.io/icon-192.png',
-      tag: 'fiado-teste',
-      vibrate: [200, 100, 200]
+        // Disparar notificação via Service Worker (funciona em PWA)
+        try {
+          const reg = await navigator.serviceWorker.ready;
+          await reg.showNotification('✅ Diaz Delicias — Fiado', {
+            body: 'Notificações ativas! Você receberá alertas de vencimento automaticamente. 🔔',
+            icon: 'https://b13l.github.io/icon-192.png',
+            tag: 'fiado-teste',
+            vibrate: [200, 100, 200],
+            requireInteraction: false
+          });
+          toast('✅ Notificação enviada! Verifique seu celular.');
+        } catch(e) {
+          new Notification('✅ Diaz Delicias — Fiado', { body: 'Notificações ativas! 🔔' });
+          toast('✅ Notificações ativas!');
+        }
+
+      } catch(e) {
+        toast('Erro: ' + e.message, 'err');
+      }
     });
-    toast('✅ Notificação enviada! Verifique seu celular.');
-  } catch(e) {
-    // Fallback sem service worker
+  } else {
+    // Fallback total sem OneSignal
     try {
-      new Notification('🧪 Diaz Delicias — Fiado', {
-        body: 'Notificações funcionando! ✅',
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') { toast('Permissão negada','err'); return; }
+      const reg = await navigator.serviceWorker.ready;
+      await reg.showNotification('✅ Diaz Delicias — Fiado', {
+        body: 'Notificações ativas! 🔔',
         tag: 'fiado-teste'
       });
       toast('✅ Notificação enviada!');
-    } catch(e2) {
-      toast('Erro: ' + e2.message,'err');
+    } catch(e) {
+      toast('Erro: ' + e.message, 'err');
     }
-  }
-
-  // Vincular CPF no OneSignal em background (sem bloquear)
-  if (window.OneSignalDeferred && clienteLogado) {
-    OneSignalDeferred.push(async function(OneSignal) {
-      try {
-        const cpfLimpo = (clienteLogado.cpf || '').replace(/\D/g, '');
-        if (cpfLimpo) await OneSignal.login(cpfLimpo);
-      } catch(e) {}
-    });
   }
 }
 
