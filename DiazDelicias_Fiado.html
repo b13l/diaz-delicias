@@ -1052,13 +1052,42 @@ function mostrarModalPWA(titulo, instrucoes) {
 
 // Registrar Service Worker (obrigatório para PWA funcionar)
 if ('serviceWorker' in navigator) {
+  // Forçar atualização do SW — garante que versão nova seja instalada
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    regs.forEach(r => r.update());
+  });
+
   navigator.serviceWorker.register('./sw-fiado.js')
-    .then(reg => {
+    .then(async reg => {
       console.log('SW Fiado registrado:', reg.scope);
-      // Forçar atualização do SW se houver nova versão
+      // Forçar ativação imediata se houver SW em espera
+      if (reg.waiting) {
+        reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+      }
+      reg.addEventListener('updatefound', () => {
+        const novo = reg.installing;
+        if (novo) {
+          novo.addEventListener('statechange', () => {
+            if (novo.state === 'installed' && navigator.serviceWorker.controller) {
+              // Recarregar para ativar novo SW
+              window.location.reload();
+            }
+          });
+        }
+      });
       reg.update();
     })
     .catch(e => console.log('SW erro:', e));
+
+  // Solicitar permissão de notificação automaticamente ao abrir (apenas 1x)
+  if ('Notification' in window && Notification.permission === 'default') {
+    // Aguardar interação do usuário para pedir permissão (requisito do Chrome)
+    document.addEventListener('click', async function pedirPerm() {
+      document.removeEventListener('click', pedirPerm);
+      await Notification.requestPermission();
+      atualizarStatusNotif();
+    }, { once: true });
+  }
 }
 
 // Verificar se já está instalado via display-mode
