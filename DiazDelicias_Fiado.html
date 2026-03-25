@@ -711,55 +711,56 @@ async function verificarNotificacaoVencimento() {
 }
 
 async function testarNotificacao() {
-  if (!window.OneSignalDeferred) {
-    toast('OneSignal não carregado','err'); return;
+  // Verificar estado atual da permissão
+  const estado = Notification.permission;
+
+  if (estado === 'denied') {
+    toast('🚫 Notificações bloqueadas. Libere nas configurações do navegador/celular.','err');
+    return;
   }
-  OneSignalDeferred.push(async function(OneSignal) {
-    try {
-      // Solicitar permissão se ainda não deu
-      const permission = await OneSignal.Notifications.requestPermission();
-      if (!permission) {
-        toast('⚠️ Permissão de notificação negada','err'); return;
-      }
 
-      // Identificar o cliente (caso ainda não esteja logado no OneSignal)
-      if (clienteLogado) {
-        const cpfLimpo = (clienteLogado.cpf || '').replace(/\D/g, '');
-        if (cpfLimpo) {
-          try { await OneSignal.login(cpfLimpo); } catch(e) {}
-        }
-      }
-
-      // Enviar notificação de teste via fetch para a Edge Function
-      const resp = await fetch('https://suxvicjeubwhjnxsjrjk.supabase.co/functions/v1/testar-notificacao', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cpf: clienteLogado?.cpf || '' })
-      });
-
-      // Fallback: se a Edge Function não existir, dispara notificação local
-      if (!resp.ok) {
-        new Notification('🧪 Diaz Delicias — Fiado', {
-          body: 'Notificações funcionando! ✅ Você receberá alertas de vencimento automaticamente.',
-          icon: '/icon-192.png',
-          tag: 'fiado-teste'
-        });
-      }
-
-      toast('✅ Notificação de teste enviada!');
-    } catch(e) {
-      // Fallback local
-      try {
-        new Notification('🧪 Diaz Delicias — Fiado', {
-          body: 'Notificações ativas! ✅',
-          tag: 'fiado-teste'
-        });
-        toast('✅ Notificação enviada!');
-      } catch(e2) {
-        toast('Erro: ' + e2.message, 'err');
-      }
+  if (estado === 'default') {
+    // Pedir permissão nativamente
+    const resultado = await Notification.requestPermission();
+    if (resultado !== 'granted') {
+      toast('⚠️ Permissão negada. Ative nas configurações do Chrome.','err');
+      return;
     }
-  });
+  }
+
+  // Permissão concedida — disparar notificação local imediatamente
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    await reg.showNotification('🧪 Diaz Delicias — Fiado', {
+      body: 'Notificações funcionando! ✅ Você receberá alertas de vencimento automaticamente.',
+      icon: 'https://b13l.github.io/icon-192.png',
+      badge: 'https://b13l.github.io/icon-192.png',
+      tag: 'fiado-teste',
+      vibrate: [200, 100, 200]
+    });
+    toast('✅ Notificação enviada! Verifique seu celular.');
+  } catch(e) {
+    // Fallback sem service worker
+    try {
+      new Notification('🧪 Diaz Delicias — Fiado', {
+        body: 'Notificações funcionando! ✅',
+        tag: 'fiado-teste'
+      });
+      toast('✅ Notificação enviada!');
+    } catch(e2) {
+      toast('Erro: ' + e2.message,'err');
+    }
+  }
+
+  // Vincular CPF no OneSignal em background (sem bloquear)
+  if (window.OneSignalDeferred && clienteLogado) {
+    OneSignalDeferred.push(async function(OneSignal) {
+      try {
+        const cpfLimpo = (clienteLogado.cpf || '').replace(/\D/g, '');
+        if (cpfLimpo) await OneSignal.login(cpfLimpo);
+      } catch(e) {}
+    });
+  }
 }
 
 // ==================== PWA INSTALAÇÃO ====================
