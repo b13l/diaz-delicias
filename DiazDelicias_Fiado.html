@@ -84,6 +84,18 @@ html,body{background:var(--bg);color:var(--txt);font-family:'Segoe UI',system-ui
 .pwa-install-btn:active { transform: scale(.93); }
 .pwa-install-btn.hidden { display: none; }
 </style>
+  <!-- OneSignal SDK -->
+  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+  <script>
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    OneSignalDeferred.push(async function(OneSignal) {
+      await OneSignal.init({
+        appId: "3127e6f3-106b-4f9d-94c4-3c9c53e3b6dc",
+        serviceWorkerPath: "/sw-fiado.js",
+        notifyButton: { enable: false },
+      });
+    });
+  </script>
 </head>
 <body>
 <div class="hdr">
@@ -152,14 +164,7 @@ html,body{background:var(--bg);color:var(--txt);font-family:'Segoe UI',system-ui
 <div class="tela" id="tela-conta">
   <div class="card">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-      <div id="conta-avatar-wrap" onclick="document.getElementById('inp-avatar').click()"
-           style="width:62px;height:62px;border-radius:50%;background:var(--rosa-esc);display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0;cursor:pointer;position:relative;border:2.5px solid #ff2d78;box-shadow:0 0 12px #ff2d78aa,0 0 24px #ff2d7855;overflow:hidden;transition:box-shadow .3s;"
-           title="Toque para alterar foto de perfil">
-        <span id="conta-avatar-iniciais" style="color:#fff;font-weight:900;font-size:1.2rem;letter-spacing:1px;">👤</span>
-        <img id="conta-avatar-img" src="" alt="" style="display:none;width:100%;height:100%;object-fit:cover;position:absolute;inset:0;">
-        <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(255,45,120,.7);text-align:center;font-size:.5rem;color:#fff;font-weight:700;padding:2px 0;">📷 foto</div>
-      </div>
-      <input type="file" id="inp-avatar" accept="image/*" style="display:none" onchange="uploadAvatarCliente(this)">
+      <div style="width:46px;height:46px;border-radius:50%;background:var(--rosa-esc);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0;">👤</div>
       <div style="flex:1;">
         <div style="font-weight:800;font-size:1rem;" id="conta-nome-display">—</div>
         <div style="font-size:.72rem;color:var(--txt2);margin-top:2px;" id="conta-info-display">—</div>
@@ -394,6 +399,13 @@ async function fazerLogin() {
   }
   clienteLogado = data;
   localStorage.setItem('fiado_cliente_id', data.id);
+  // Identificar cliente no OneSignal para notificações individuais
+  const cpfLimpo = (data.cpf || '').replace(/\D/g, '');
+  if (cpfLimpo && window.OneSignalDeferred) {
+    OneSignalDeferred.push(async function(OneSignal) {
+      try { await OneSignal.login(cpfLimpo); } catch(e) { console.log('OS login err:', e); }
+    });
+  }
   mostrarConta();
 }
 
@@ -402,29 +414,10 @@ async function mostrarConta() {
   const { data } = await db.from('clientes_fiado').select('*').eq('id',clienteLogado.id).single();
   if (data) clienteLogado = data;
 
-  const _cpf4 = (clienteLogado.cpf || '').replace(/\D/g,'').slice(-4);
-  document.getElementById('conta-nome-display').innerHTML =
-    clienteLogado.nome +
-    (_cpf4 ? ' <span style="background:linear-gradient(135deg,#ff2d78,#ff6eb4);color:#fff;font-size:.62rem;font-weight:900;padding:2px 9px;border-radius:20px;letter-spacing:1px;box-shadow:0 0 10px #ff2d78,0 0 20px #ff2d78aa;vertical-align:middle;margin-left:6px;">ID ' + _cpf4 + '</span>' : '');
-
-  // Iniciais do nome como fallback avatar
-  const _iniciais = clienteLogado.nome.trim().split(' ').filter(Boolean).map(p=>p[0].toUpperCase()).slice(0,2).join('');
-  document.getElementById('conta-avatar-iniciais').textContent = _iniciais || '👤';
-
-  // Carregar foto de perfil se existir
-  if (clienteLogado.avatar_url) {
-    const img = document.getElementById('conta-avatar-img');
-    img.src = clienteLogado.avatar_url;
-    img.style.display = 'block';
-    document.getElementById('conta-avatar-iniciais').style.display = 'none';
-  } else {
-    document.getElementById('conta-avatar-img').style.display = 'none';
-    document.getElementById('conta-avatar-iniciais').style.display = 'flex';
-  }
-  document.getElementById('conta-info-display').innerHTML =
+  document.getElementById('conta-nome-display').textContent = clienteLogado.nome;
+  document.getElementById('conta-info-display').textContent =
     clienteLogado.periodicidade.charAt(0).toUpperCase()+clienteLogado.periodicidade.slice(1)+
-    ' • Venc. dia '+clienteLogado.dia_vencimento+' • '+clienteLogado.forma_pagamento +
-    (_cpf4 ? '<div style="margin-top:5px;font-size:.7rem;color:#ff6eb4;font-weight:700;letter-spacing:.3px;">🪪 Seu ID para usar o <span style=\'color:#fff;background:linear-gradient(135deg,#ff2d78,#ff6eb4);padding:1px 7px;border-radius:10px;box-shadow:0 0 8px #ff2d78aa;font-weight:900;\'>Crédito Fiado</span> são os últimos 4 dígitos do seu CPF</div>' : '');
+    ' • Venc. dia '+clienteLogado.dia_vencimento+' • '+clienteLogado.forma_pagamento;
 
   const badge = document.getElementById('conta-badge');
   const stMap = {ativo:'badge-ativo',pendente:'badge-pendente',bloqueado:'badge-bloqueado'};
@@ -464,21 +457,12 @@ async function mostrarConta() {
     ext.innerHTML = movs.map(m => {
       const d = new Date(m.data_transacao).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
       const isC = m.tipo==='consumo';
-      const statusAnalise = m.comprovante_dados?.status_analise || null;
-      const statusBadge = statusAnalise === 'aguardando'
-        ? '<span style="background:rgba(255,183,3,.18);color:var(--ouro);border:1px solid var(--ouro);border-radius:4px;font-size:.65rem;font-weight:700;padding:1px 7px;margin-left:6px;">⏳ Aguardando análise</span>'
-        : statusAnalise === 'aprovado'
-        ? '<span style="background:rgba(0,230,118,.18);color:var(--verde);border:1px solid var(--verde);border-radius:4px;font-size:.65rem;font-weight:700;padding:1px 7px;margin-left:6px;">✅ Aprovado</span>'
-        : statusAnalise === 'recusado'
-        ? '<span style="background:rgba(255,71,87,.18);color:var(--vermelho);border:1px solid var(--vermelho);border-radius:4px;font-size:.65rem;font-weight:700;padding:1px 7px;margin-left:6px;">❌ Recusado</span>'
-        : '';
       const compBtn = (m.comprovante_dados && isC)
         ? '<button onclick="verDetalheConsumo(this)" data-comp="'+encodeURIComponent(JSON.stringify(m.comprovante_dados))+'" style="background:rgba(255,183,3,.12);color:var(--ouro);border:1px solid var(--ouro);border-radius:5px;padding:2px 8px;font-size:.68rem;cursor:pointer;margin-top:4px;display:inline-block;">🧾 Ver Comprovante</button>'
         : '';
       return '<div class="mov-row">'+
         '<div>'+
           '<span class="mov-tipo '+(isC?'mov-consumo':'mov-pagamento')+'">'+(isC?'🛒 Consumo':'💳 Pagamento')+'</span>'+
-          statusBadge+
           (m.descricao?'<div style="font-size:.75rem;color:var(--txt2);margin-top:3px;">'+m.descricao+'</div>':'')+
           '<div style="font-size:.7rem;color:var(--txt3);">'+d+'</div>'+
           compBtn+
@@ -492,46 +476,15 @@ async function mostrarConta() {
   verificarNotificacaoVencimento();
 }
 
-async function uploadAvatarCliente(input) {
-  const file = input.files[0];
-  if (!file || !clienteLogado) return;
-
-  const wrap = document.getElementById('conta-avatar-wrap');
-  wrap.style.opacity = '0.5';
-  wrap.style.pointerEvents = 'none';
-  toast('📷 Enviando foto...', 'info');
-
-  const ext = file.name.split('.').pop();
-  const nomeArq = 'avatar_' + clienteLogado.id + '_' + Date.now() + '.' + ext;
-
-  const { error: upErr } = await db.storage.from('avatares-fiado').upload(nomeArq, file, { contentType: file.type, upsert: true });
-  if (upErr) {
-    toast('Erro ao enviar foto', 'err');
-    wrap.style.opacity = '1';
-    wrap.style.pointerEvents = 'auto';
-    return;
-  }
-
-  const { data: ud } = db.storage.from('avatares-fiado').getPublicUrl(nomeArq);
-  const url = ud?.publicUrl || null;
-  if (!url) { toast('Erro ao obter URL da foto', 'err'); return; }
-
-  await db.from('clientes_fiado').update({ avatar_url: url }).eq('id', clienteLogado.id);
-  clienteLogado.avatar_url = url;
-
-  const img = document.getElementById('conta-avatar-img');
-  img.src = url + '?t=' + Date.now();
-  img.style.display = 'block';
-  document.getElementById('conta-avatar-iniciais').style.display = 'none';
-  wrap.style.opacity = '1';
-  wrap.style.pointerEvents = 'auto';
-  wrap.style.boxShadow = '0 0 18px #ff2d78,0 0 36px #ff2d7888';
-  toast('✅ Foto de perfil atualizada!');
-}
-
 function sair() {
   clienteLogado = null;
   localStorage.removeItem('fiado_cliente_id');
+  // Desidentificar no OneSignal ao sair
+  if (window.OneSignalDeferred) {
+    OneSignalDeferred.push(async function(OneSignal) {
+      try { await OneSignal.logout(); } catch(e) {}
+    });
+  }
   irTela('tela-inicio');
 }
 
@@ -677,13 +630,8 @@ async function enviarComprovantePagamento() {
   let urlComp = null;
   const { data: upData, error: upErr } = await db.storage.from('comprovantes-fiado').upload(nomeArq, file, { contentType: file.type, upsert: false });
   if (!upErr) { const { data: ud } = db.storage.from('comprovantes-fiado').getPublicUrl(nomeArq); urlComp = ud?.publicUrl || null; }
-  // Buscar saldo atualizado direto do BD
-  const { data: cliAtual } = await db.from('clientes_fiado').select('saldo_usado').eq('id', clienteLogado.id).single();
-  const valorEmAberto = parseFloat(cliAtual?.saldo_usado || clienteLogado.saldousado || 0);
-
   const { error: tErr } = await db.from('fiado_transacoes').insert([{
-    cliente_id: clienteLogado.id, tipo: 'pagamento',
-    valor: valorEmAberto,
+    cliente_id: clienteLogado.id, tipo: 'comprovante_enviado', valor: 0,
     descricao: obs || 'Comprovante de pagamento enviado',
     data_transacao: new Date().toISOString(),
     comprovante_dados: { url: urlComp, obs, status_analise: 'aguardando', cliente_nome: clienteLogado.nome }
@@ -728,12 +676,9 @@ function atualizarStatusNotif() {
   if (!('Notification' in window)) { el.textContent = '⚠️ Notificações não suportadas'; return; }
   const ativo = localStorage.getItem('fiado_notif_ativo') === 'true';
   if (!ativo) { el.textContent = 'Notificações desativadas'; el.style.color = 'var(--txt3)'; return; }
-  if (Notification.permission === 'granted') { el.textContent = '✅ Notificações ativas e funcionando'; el.style.color = 'var(--verde)'; }
-  else if (Notification.permission === 'denied') {
-    el.innerHTML = '🔴 <strong>Permissão bloqueada pelo navegador.</strong><br><span style="font-size:.68rem;color:var(--txt2);">No Chrome: toque no 🔒 na barra de endereço → Permissões do site → Notificações → Permitir.<br>No Firefox: Menu → Configurações → Privacidade → Notificações.</span>';
-    el.style.color = 'var(--vermelho)';
-  }
-  else { el.textContent = '⏳ Clique em "Testar" para ativar as notificações'; el.style.color = 'var(--ouro)'; }
+  if (Notification.permission === 'granted') { el.textContent = '✅ Notificações ativas'; el.style.color = 'var(--verde)'; }
+  else if (Notification.permission === 'denied') { el.textContent = '🔴 Permissão negada — ative nas configurações'; el.style.color = 'var(--vermelho)'; }
+  else { el.textContent = '⏳ Aguardando permissão'; }
 }
 
 async function solicitarPermissaoNotificacao() {
@@ -766,183 +711,55 @@ async function verificarNotificacaoVencimento() {
 }
 
 async function testarNotificacao() {
-  const el = document.getElementById('notif-status-txt');
-
-  if (!('Notification' in window)) {
-    toast('Notificações não suportadas neste navegador','err');
-    return;
+  if (!window.OneSignalDeferred) {
+    toast('OneSignal não carregado','err'); return;
   }
-
-  // Ativar automaticamente no localStorage
-  localStorage.setItem('fiado_notif_ativo', 'true');
-  const cb = document.getElementById('notif-ativo');
-  if (cb) cb.checked = true;
-  const area = document.getElementById('notif-config-area');
-  if (area) area.style.display = 'block';
-
-  const _saldo = clienteLogado ? R(parseFloat(clienteLogado.saldo_usado||0)) : 'R$ 0,00';
-  const _dias = clienteLogado ? clienteLogado.dia_vencimento : '??';
-  const _titulo = '⏰ Diaz Delicias — Fiado';
-  const _corpo = 'Seu fiado vence no dia ' + _dias + '! Saldo em aberto: ' + _saldo + '. Toque para ver.';
-
-  const dispararNotificacao = async () => {
+  OneSignalDeferred.push(async function(OneSignal) {
     try {
-      // PWA/Android: usar Service Worker
-      if ('serviceWorker' in navigator) {
-        const reg = await navigator.serviceWorker.ready;
-        await reg.showNotification(_titulo, { body: _corpo, tag: 'fiado-teste', icon: '/icons/icon-192.png', badge: '/icons/icon-192.png' });
+      // Solicitar permissão se ainda não deu
+      const permission = await OneSignal.Notifications.requestPermission();
+      if (!permission) {
+        toast('⚠️ Permissão de notificação negada','err'); return;
+      }
+
+      // Identificar o cliente (caso ainda não esteja logado no OneSignal)
+      if (clienteLogado) {
+        const cpfLimpo = (clienteLogado.cpf || '').replace(/\D/g, '');
+        if (cpfLimpo) {
+          try { await OneSignal.login(cpfLimpo); } catch(e) {}
+        }
+      }
+
+      // Enviar notificação de teste via fetch para a Edge Function
+      const resp = await fetch('https://suxvicjeubwhjnxsjrjk.supabase.co/functions/v1/testar-notificacao', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cpf: clienteLogado?.cpf || '' })
+      });
+
+      // Fallback: se a Edge Function não existir, dispara notificação local
+      if (!resp.ok) {
+        new Notification('🧪 Diaz Delicias — Fiado', {
+          body: 'Notificações funcionando! ✅ Você receberá alertas de vencimento automaticamente.',
+          icon: '/icon-192.png',
+          tag: 'fiado-teste'
+        });
+      }
+
+      toast('✅ Notificação de teste enviada!');
+    } catch(e) {
+      // Fallback local
+      try {
+        new Notification('🧪 Diaz Delicias — Fiado', {
+          body: 'Notificações ativas! ✅',
+          tag: 'fiado-teste'
+        });
         toast('✅ Notificação enviada!');
-        if (el) { el.textContent = '✅ Notificações ativas e funcionando'; el.style.color = 'var(--verde)'; }
-        return true;
+      } catch(e2) {
+        toast('Erro: ' + e2.message, 'err');
       }
-      // Fallback: Notification direta
-      const n = new Notification(_titulo, { body: _corpo, tag: 'fiado-teste' });
-      n.onclick = () => { window.focus(); n.close(); };
-      toast('✅ Notificação enviada!');
-      if (el) { el.textContent = '✅ Notificações ativas e funcionando'; el.style.color = 'var(--verde)'; }
-      return true;
-    } catch(e) {
-      toast('Erro: ' + e.message, 'err');
-      return false;
     }
-  };
-
-  // Se já garantido — disparar direto
-  if (Notification.permission === 'granted') {
-    await dispararNotificacao();
-    return;
-  }
-
-  // Bloqueado explicitamente
-  if (Notification.permission === 'denied') {
-    if (el) {
-      el.innerHTML = '🔴 <strong>Permissão bloqueada.</strong><br>'
-        + '<span style="font-size:.68rem;color:var(--txt2);">Chrome Android: Menu ⋮ → Configurações → Configurações do site → Notificações → encontre este site → Permitir.<br>Depois feche e abra o app novamente.</span>';
-      el.style.color = 'var(--vermelho)';
-    }
-    toast('Permissão bloqueada — veja as instruções', 'err');
-    return;
-  }
-
-  // Default — pedir permissão e disparar independente do resultado no Android
-  try {
-    const perm = await Notification.requestPermission();
-    atualizarStatusNotif();
-    // No Android PWA, mesmo que retorne 'default', o SW pode enviar — tentar de qualquer forma
-    if (perm === 'denied') {
-      toast('Permissão negada', 'err');
-      return;
-    }
-    await dispararNotificacao();
-  } catch(e) {
-    // requestPermission falhou — tentar enviar direto via SW mesmo assim
-    await dispararNotificacao();
-  }
-}
-
-
-async function solicitarPermissaoNotificacao() {
-  if (!('Notification' in window)) return false;
-  if (Notification.permission === 'granted') return true;
-  if (Notification.permission === 'denied') return false;
-  const p = await Notification.requestPermission();
-  atualizarStatusNotif();
-  return p === 'granted';
-}
-
-async function verificarNotificacaoVencimento() {
-  if (!clienteLogado || !('Notification' in window)) return;
-  if (Notification.permission !== 'granted') return;
-  if (localStorage.getItem('fiado_notif_ativo') !== 'true') return;
-  const diasCfg = parseInt(localStorage.getItem('fiado_notif_dias') || '5');
-  const hoje = new Date();
-  let proxVenc = new Date(hoje.getFullYear(),hoje.getMonth(),clienteLogado.dia_vencimento);
-  if (proxVenc <= hoje) proxVenc = new Date(hoje.getFullYear(),hoje.getMonth()+1,clienteLogado.dia_vencimento);
-  const diasAte = Math.ceil((proxVenc-hoje)/86400000);
-  if (diasAte > diasCfg || parseFloat(clienteLogado.saldo_usado||0) <= 0) return;
-  const hoje_str = hoje.toISOString().split('T')[0];
-  if (localStorage.getItem('fiado_ultima_notif') === hoje_str) return;
-  localStorage.setItem('fiado_ultima_notif', hoje_str);
-  const n = new Notification('⏰ Diaz Delicias — Fiado', {
-    body: 'Seu fiado vence em '+diasAte+' dia(s)! Saldo: '+R(clienteLogado.saldo_usado)+'. Toque para ver.',
-    tag: 'fiado-vencimento'
   });
-  n.onclick = () => { window.focus(); n.close(); };
-}
-
-async function testarNotificacao() {
-  const el = document.getElementById('notif-status-txt');
-
-  // Sem suporte
-  if (!('Notification' in window)) {
-    toast('Notificações não suportadas neste navegador','err');
-    return;
-  }
-
-  // Ativar automaticamente no localStorage ao testar
-  localStorage.setItem('fiado_notif_ativo', 'true');
-  const cb = document.getElementById('notif-ativo');
-  if (cb) cb.checked = true;
-  const area = document.getElementById('notif-config-area');
-  if (area) area.style.display = 'block';
-
-  // Já permitido — disparar direto
-  if (Notification.permission === 'granted') {
-    try {
-      const _saldo = clienteLogado ? R(parseFloat(clienteLogado.saldo_usado||0)) : 'R$ 0,00';
-      const _dias = clienteLogado ? clienteLogado.dia_vencimento : '??';
-      const _titulo = '⏰ Diaz Delicias — Fiado';
-      const _corpo = 'Seu fiado vence no dia ' + _dias + '! Saldo em aberto: ' + _saldo + '. Toque para ver.';
-      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.ready.then(reg => {
-          reg.showNotification(_titulo, { body: _corpo, tag: 'fiado-teste', icon: '/icons/icon-192.png' });
-        });
-      } else {
-        const n = new Notification(_titulo, { body: _corpo, tag: 'fiado-teste' });
-        n.onclick = () => { window.focus(); n.close(); };
-      }
-      toast('✅ Notificação enviada!');
-      if (el) { el.textContent = '✅ Notificações ativas e funcionando'; el.style.color = 'var(--verde)'; }
-    } catch(e) {
-      toast('Erro ao enviar notificação: ' + e.message,'err');
-    }
-    return;
-  }
-
-  // Bloqueado — instruções
-  if (Notification.permission === 'denied') {
-    if (el) {
-      el.innerHTML = '🔴 <strong>Permissão bloqueada pelo navegador.</strong><br>'
-        + '<span style="font-size:.68rem;color:var(--txt2);">Chrome: toque no 🔒 na barra de endereço → <b>Configurações do site</b> → <b>Notificações</b> → <b>Permitir</b>.<br>'
-        + 'Depois recarregue a página e teste novamente.</span>';
-      el.style.color = 'var(--vermelho)';
-    }
-    toast('Permissão bloqueada — veja as instruções','err');
-    return;
-  }
-
-  // Ainda não pediu (default) — solicitar agora
-  const perm = await Notification.requestPermission();
-  atualizarStatusNotif();
-  if (perm === 'granted') {
-    try {
-      const _saldo2 = clienteLogado ? R(parseFloat(clienteLogado.saldo_usado||0)) : 'R$ 0,00';
-      const _dias2 = clienteLogado ? clienteLogado.dia_vencimento : '??';
-      const _titulo2 = '⏰ Diaz Delicias — Fiado';
-      const _corpo2 = 'Seu fiado vence no dia ' + _dias2 + '! Saldo em aberto: ' + _saldo2 + '. Toque para ver.';
-      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.ready.then(reg => {
-          reg.showNotification(_titulo2, { body: _corpo2, tag: 'fiado-teste', icon: '/icons/icon-192.png' });
-        });
-      } else {
-        const n2 = new Notification(_titulo2, { body: _corpo2, tag: 'fiado-teste' });
-        n2.onclick = () => { window.focus(); n2.close(); };
-      }
-      toast('✅ Notificação enviada!');
-    } catch(e) { toast('Erro: ' + e.message,'err'); }
-  } else {
-    toast('Permissão não concedida','err');
-  }
 }
 
 // ==================== PWA INSTALAÇÃO ====================
@@ -1052,42 +869,13 @@ function mostrarModalPWA(titulo, instrucoes) {
 
 // Registrar Service Worker (obrigatório para PWA funcionar)
 if ('serviceWorker' in navigator) {
-  // Forçar atualização do SW — garante que versão nova seja instalada
-  navigator.serviceWorker.getRegistrations().then(regs => {
-    regs.forEach(r => r.update());
-  });
-
   navigator.serviceWorker.register('./sw-fiado.js')
-    .then(async reg => {
+    .then(reg => {
       console.log('SW Fiado registrado:', reg.scope);
-      // Forçar ativação imediata se houver SW em espera
-      if (reg.waiting) {
-        reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-      }
-      reg.addEventListener('updatefound', () => {
-        const novo = reg.installing;
-        if (novo) {
-          novo.addEventListener('statechange', () => {
-            if (novo.state === 'installed' && navigator.serviceWorker.controller) {
-              // Recarregar para ativar novo SW
-              window.location.reload();
-            }
-          });
-        }
-      });
+      // Forçar atualização do SW se houver nova versão
       reg.update();
     })
     .catch(e => console.log('SW erro:', e));
-
-  // Solicitar permissão de notificação automaticamente ao abrir (apenas 1x)
-  if ('Notification' in window && Notification.permission === 'default') {
-    // Aguardar interação do usuário para pedir permissão (requisito do Chrome)
-    document.addEventListener('click', async function pedirPerm() {
-      document.removeEventListener('click', pedirPerm);
-      await Notification.requestPermission();
-      atualizarStatusNotif();
-    }, { once: true });
-  }
 }
 
 // Verificar se já está instalado via display-mode
