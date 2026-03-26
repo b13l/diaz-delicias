@@ -201,7 +201,10 @@ html,body{background:var(--bg);color:var(--txt);font-family:'Segoe UI',system-ui
         <label style="display:flex;align-items:center;gap:4px;font-size:.8rem;cursor:pointer;"><input type="radio" name="notif-dias" value="5" checked style="accent-color:var(--rosa);"> 5 dias</label>
         <label style="display:flex;align-items:center;gap:4px;font-size:.8rem;cursor:pointer;"><input type="radio" name="notif-dias" value="7" style="accent-color:var(--rosa);"> 7 dias</label>
       </div>
-      <button onclick="testarNotificacao()" style="margin-top:10px;width:100%;padding:8px;background:var(--card2);border:1px solid var(--borda);color:var(--txt2);border-radius:6px;font-weight:700;cursor:pointer;font-size:.78rem;">🔔 Testar</button>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button onclick="testarNotificacao()" style="flex:1;padding:8px;background:var(--card2);border:1px solid var(--borda);color:var(--txt2);border-radius:6px;font-weight:700;cursor:pointer;font-size:.78rem;">🔔 Testar</button>
+        <button onclick="limparTeste()" style="flex:1;padding:8px;background:var(--card2);border:1px solid var(--borda);color:var(--txt2);border-radius:6px;font-weight:700;cursor:pointer;font-size:.78rem;">🗑️ Limpar Teste</button>
+      </div>
     </div>
     <div id="notif-status-txt" style="font-size:.72rem;color:var(--txt3);margin-top:6px;"></div>
   </div>
@@ -711,65 +714,80 @@ async function verificarNotificacaoVencimento() {
 }
 
 async function testarNotificacao() {
-  // Usar OneSignal como método principal (funciona melhor em PWA instalado)
+  if (!clienteLogado) { toast('Faça login primeiro','err'); return; }
+
+  // Verificar permissão
+  if (Notification.permission === 'denied') {
+    toast('🚫 Notificações bloqueadas. Ative nas configurações do navegador.','err');
+    return;
+  }
+
+  // Pedir permissão se ainda não deu
+  if (Notification.permission === 'default') {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') {
+      toast('⚠️ Permissão negada. Ative nas configurações.','err');
+      return;
+    }
+  }
+
+  // Vincular CPF no OneSignal
   if (window.OneSignalDeferred) {
     OneSignalDeferred.push(async function(OneSignal) {
       try {
-        // Pedir permissão pelo OneSignal
-        const granted = await OneSignal.Notifications.requestPermission();
-
-        if (!granted) {
-          // Tentar via nativo como fallback
-          const nativo = await Notification.requestPermission();
-          if (nativo !== 'granted') {
-            toast('⚠️ Para receber alertas: Configurações do celular → Apps → Chrome → Notificações → Ativar', 'err');
-            return;
-          }
-        }
-
-        // Vincular CPF no OneSignal
-        if (clienteLogado) {
-          const cpfLimpo = (clienteLogado.cpf || '').replace(/\D/g, '');
-          if (cpfLimpo) {
-            try { await OneSignal.login(cpfLimpo); } catch(e) {}
-          }
-        }
-
-        // Disparar notificação via Service Worker (funciona em PWA)
-        try {
-          const reg = await navigator.serviceWorker.ready;
-          await reg.showNotification('✅ Diaz Delicias — Fiado', {
-            body: 'Notificações ativas! Você receberá alertas de vencimento automaticamente. 🔔',
-            icon: 'https://b13l.github.io/icon-192.png',
-            tag: 'fiado-teste',
-            vibrate: [200, 100, 200],
-            requireInteraction: false
-          });
-          toast('✅ Notificação enviada! Verifique seu celular.');
-        } catch(e) {
-          new Notification('✅ Diaz Delicias — Fiado', { body: 'Notificações ativas! 🔔' });
-          toast('✅ Notificações ativas!');
-        }
-
-      } catch(e) {
-        toast('Erro: ' + e.message, 'err');
-      }
+        const cpfLimpo = (clienteLogado.cpf || '').replace(/\D/g, '');
+        if (cpfLimpo) await OneSignal.login(cpfLimpo);
+      } catch(e) {}
     });
-  } else {
-    // Fallback total sem OneSignal
+  }
+
+  // Montar mensagem real com dados do cliente
+  const nome = clienteLogado.nome || 'Cliente'
+  const saldo = parseFloat(clienteLogado.saldo_usado || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  const dia = clienteLogado.dia_vencimento || '?'
+
+  // Calcular dias até vencimento
+  const hoje = new Date()
+  const hojeZerado = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
+  let proxVenc = new Date(hoje.getFullYear(), hoje.getMonth(), dia)
+  if (proxVenc < hojeZerado) proxVenc = new Date(hoje.getFullYear(), hoje.getMonth() + 1, dia)
+  const diasAte = Math.ceil((proxVenc.getTime() - hojeZerado.getTime()) / 86400000)
+
+  const titulo = '⏰ Diaz Delicias — Fiado'
+  const mensagem = diasAte === 0
+    ? `${nome}, seu fiado vence HOJE! Saldo: ${saldo}. Regularize para continuar usando.`
+    : `${nome}, seu fiado vence em ${diasAte} dia(s) (dia ${dia})! Saldo: ${saldo}.`
+
+  // Disparar via Service Worker (funciona em PWA instalado)
+  try {
+    const reg = await navigator.serviceWorker.ready
+    await reg.showNotification(titulo, {
+      body: mensagem,
+      icon: 'https://b13l.github.io/icon-192.png',
+      badge: 'https://b13l.github.io/icon-192.png',
+      tag: 'fiado-teste',
+      vibrate: [200, 100, 200],
+      requireInteraction: false
+    })
+    toast('✅ Notificação enviada!')
+  } catch(e) {
     try {
-      const perm = await Notification.requestPermission();
-      if (perm !== 'granted') { toast('Permissão negada','err'); return; }
-      const reg = await navigator.serviceWorker.ready;
-      await reg.showNotification('✅ Diaz Delicias — Fiado', {
-        body: 'Notificações ativas! 🔔',
-        tag: 'fiado-teste'
-      });
-      toast('✅ Notificação enviada!');
-    } catch(e) {
-      toast('Erro: ' + e.message, 'err');
+      new Notification(titulo, { body: mensagem })
+      toast('✅ Notificação enviada!')
+    } catch(e2) {
+      toast('Erro: ' + e2.message, 'err')
     }
   }
+}
+
+async function limparTeste() {
+  if (!clienteLogado) { toast('Faça login primeiro','err'); return; }
+  const { error } = await db
+    .from('clientes_fiado')
+    .update({ ultima_notif_enviada: null })
+    .eq('id', clienteLogado.id)
+  if (error) { toast('Erro ao limpar','err'); return; }
+  toast('🗑️ Teste limpo! Pode testar a Edge Function novamente.')
 }
 
 // ==================== PWA INSTALAÇÃO ====================
