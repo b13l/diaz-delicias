@@ -164,8 +164,23 @@ html,body{background:var(--bg);color:var(--txt);font-family:'Segoe UI',system-ui
 <div class="tela" id="tela-conta">
   <div class="card">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-      <div id="conta-avatar" onclick="document.getElementById('inp-avatar-file').click()" style="width:72px;height:72px;border-radius:50%;background:var(--rosa-esc);display:flex;align-items:center;justify-content:center;font-size:2rem;flex-shrink:0;overflow:hidden;border:2px solid var(--rosa);box-shadow:0 0 12px var(--rosa-glow);cursor:pointer;position:relative;" title="Trocar foto">👤</div>
-      <input type="file" id="inp-avatar-file" accept="image/*" style="display:none;">
+      <div onclick="abrirMenuFoto()" style="display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;flex-shrink:0;">
+        <div id="conta-avatar" style="width:72px;height:72px;border-radius:50%;background:var(--rosa-esc);display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;border:2px solid var(--rosa);box-shadow:0 0 12px var(--rosa-glow);position:relative;gap:2px;">
+          <span style="font-size:1.6rem;line-height:1;">📷</span>
+          <span style="font-size:.5rem;color:#fff;font-weight:700;letter-spacing:.3px;">Enviar foto</span>
+        </div>
+      </div>
+      <!-- inputs separados câmera e galeria -->
+      <input type="file" id="inp-avatar-camera" accept="image/*" capture="environment" style="display:none;">
+      <input type="file" id="inp-avatar-galeria" accept="image/*" style="display:none;">
+      <!-- mini menu foto -->
+      <div id="menu-foto" style="display:none;position:fixed;bottom:0;left:0;right:0;background:var(--card2);border-top:1px solid var(--borda);z-index:999;padding:16px;border-radius:16px 16px 0 0;">
+        <div style="font-weight:700;font-size:.9rem;margin-bottom:14px;text-align:center;color:var(--txt2);">Escolha uma opção</div>
+        <button onclick="document.getElementById('inp-avatar-camera').click();fecharMenuFoto()" style="width:100%;padding:12px;margin-bottom:8px;background:var(--card2);border:1px solid var(--borda);border-radius:8px;color:var(--txt);font-size:.88rem;font-weight:700;cursor:pointer;">📷 Tirar Foto</button>
+        <button onclick="document.getElementById('inp-avatar-galeria').click();fecharMenuFoto()" style="width:100%;padding:12px;margin-bottom:8px;background:var(--card2);border:1px solid var(--borda);border-radius:8px;color:var(--txt);font-size:.88rem;font-weight:700;cursor:pointer;">🖼️ Escolher da Galeria</button>
+        <button onclick="removerFotoAvatar()" style="width:100%;padding:12px;margin-bottom:8px;background:rgba(255,183,3,.08);border:1px solid var(--ouro);border-radius:8px;color:var(--ouro);font-size:.88rem;font-weight:700;cursor:pointer;">🗑️ Remover Foto</button>
+        <button onclick="fecharMenuFoto()" style="width:100%;padding:12px;background:rgba(255,23,68,.1);border:1px solid var(--vermelho);border-radius:8px;color:var(--vermelho);font-size:.88rem;font-weight:700;cursor:pointer;">✕ Cancelar</button>
+      </div>
       <div style="flex:1;">
         <div style="font-weight:800;font-size:1rem;" id="conta-nome-display">—</div>
         <div style="font-size:.72rem;color:var(--txt2);margin-top:2px;" id="conta-info-display">—</div>
@@ -430,7 +445,7 @@ async function mostrarConta() {
     if (clienteLogado.foto_url) {
       avatarEl.innerHTML = `<img src="${clienteLogado.foto_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
     } else {
-      avatarEl.textContent = '👤';
+      avatarEl.innerHTML = '<span style="font-size:1.6rem;line-height:1;">📷</span><span style="font-size:.5rem;color:#fff;font-weight:700;letter-spacing:.3px;">Enviar foto</span>';
     }
   }
   initAvatarUpload();
@@ -523,30 +538,45 @@ function toast(msg,tipo='ok') {
 
 
 // ==================== AVATAR CLIENTE ====================
+function abrirMenuFoto() {
+  document.getElementById('menu-foto').style.display = 'block';
+}
+function fecharMenuFoto() {
+  document.getElementById('menu-foto').style.display = 'none';
+}
+
+async function removerFotoAvatar() {
+  fecharMenuFoto();
+  if (!clienteLogado) return;
+  await db.from('clientes_fiado').update({ foto_url: null }).eq('id', clienteLogado.id);
+  clienteLogado.foto_url = null;
+  const avatarEl = document.getElementById('conta-avatar');
+  if (avatarEl) avatarEl.innerHTML = '<span style="font-size:1.6rem;line-height:1;">📷</span><span style="font-size:.5rem;color:#fff;font-weight:700;letter-spacing:.3px;">Enviar foto</span>';
+  toast('🗑️ Foto removida!');
+}
+
+async function handleAvatarFile(file) {
+  if (!file || !clienteLogado) return;
+  const ext = file.name.split('.').pop();
+  const path = `${clienteLogado.id}.${ext}`;
+  toast('⏳ Enviando foto...');
+  const { error: upErr } = await db.storage.from('avatares-fiado').upload(path, file, { upsert: true });
+  if (upErr) { toast('Erro ao enviar foto: ' + upErr.message, 'err'); return; }
+  const { data: urlData } = db.storage.from('avatares-fiado').getPublicUrl(path);
+  const url = urlData?.publicUrl;
+  if (!url) { toast('Erro ao obter URL', 'err'); return; }
+  await db.from('clientes_fiado').update({ foto_url: url }).eq('id', clienteLogado.id);
+  clienteLogado.foto_url = url;
+  const avatarEl = document.getElementById('conta-avatar');
+  if (avatarEl) avatarEl.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+  toast('✅ Foto atualizada!');
+}
+
 function initAvatarUpload() {
-  const inp = document.getElementById('inp-avatar-file');
-  if (!inp) return;
-  inp.onchange = async function() {
-    const file = this.files[0];
-    if (!file || !clienteLogado) return;
-    const ext = file.name.split('.').pop();
-    const path = `avatares/${clienteLogado.id}.${ext}`;
-    toast('⏳ Enviando foto...');
-    // Upload no Supabase Storage
-    const { error: upErr } = await db.storage.from('comprovantes').upload(path, file, { upsert: true });
-    if (upErr) { toast('Erro ao enviar foto: ' + upErr.message, 'err'); return; }
-    // Pegar URL pública
-    const { data: urlData } = db.storage.from('comprovantes').getPublicUrl(path);
-    const url = urlData?.publicUrl;
-    if (!url) { toast('Erro ao obter URL da foto', 'err'); return; }
-    // Salvar no banco
-    await db.from('clientes_fiado').update({ foto_url: url }).eq('id', clienteLogado.id);
-    clienteLogado.foto_url = url;
-    // Atualizar avatar na tela
-    const avatarEl = document.getElementById('conta-avatar');
-    if (avatarEl) avatarEl.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
-    toast('✅ Foto atualizada!');
-  };
+  const cam = document.getElementById('inp-avatar-camera');
+  const gal = document.getElementById('inp-avatar-galeria');
+  if (cam) cam.onchange = function() { handleAvatarFile(this.files[0]); };
+  if (gal) gal.onchange = function() { handleAvatarFile(this.files[0]); };
 }
 
 document.addEventListener('DOMContentLoaded', init);
