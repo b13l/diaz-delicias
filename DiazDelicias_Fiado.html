@@ -164,7 +164,7 @@ html,body{background:var(--bg);color:var(--txt);font-family:'Segoe UI',system-ui
 <div class="tela" id="tela-conta">
   <div class="card">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-      <div style="width:46px;height:46px;border-radius:50%;background:var(--rosa-esc);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0;">👤</div>
+      <div id="conta-avatar" style="width:72px;height:72px;border-radius:50%;background:var(--rosa-esc);display:flex;align-items:center;justify-content:center;font-size:2rem;flex-shrink:0;overflow:hidden;border:2px solid var(--rosa);box-shadow:0 0 12px var(--rosa-glow);">👤</div>
       <div style="flex:1;">
         <div style="font-weight:800;font-size:1rem;" id="conta-nome-display">—</div>
         <div style="font-size:.72rem;color:var(--txt2);margin-top:2px;" id="conta-info-display">—</div>
@@ -234,7 +234,12 @@ html,body{background:var(--bg);color:var(--txt);font-family:'Segoe UI',system-ui
     <div style="font-size:1rem;font-weight:800;color:var(--rosa);margin-bottom:16px;text-align:center;">📤 Enviar Comprovante de Pagamento</div>
     <div style="font-size:.82rem;color:var(--txt2);margin-bottom:14px;">Envie a foto do seu comprovante de pagamento para análise.</div>
     <div class="campo"><label>Imagem do comprovante</label>
-      <input type="file" id="inp-comp-file" accept="image/*" style="width:100%;padding:10px;background:var(--card2);border:1px dashed var(--borda);border-radius:8px;color:var(--txt);font-size:.82rem;">
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <button type="button" onclick="document.getElementById('inp-comp-camera').click()" style="flex:1;padding:10px;background:var(--card2);border:1px dashed var(--borda);border-radius:8px;color:var(--txt2);font-size:.82rem;cursor:pointer;">📷 Câmera</button>
+        <button type="button" onclick="document.getElementById('inp-comp-galeria').click()" style="flex:1;padding:10px;background:var(--card2);border:1px dashed var(--borda);border-radius:8px;color:var(--txt2);font-size:.82rem;cursor:pointer;">🖼️ Galeria</button>
+      </div>
+      <input type="file" id="inp-comp-camera" accept="image/*" capture="user" style="display:none;">
+      <input type="file" id="inp-comp-galeria" accept="image/*" style="display:none;">
     </div>
     <div id="comp-preview" style="margin-bottom:10px;"></div>
     <div class="campo"><label>Observação (opcional)</label>
@@ -418,9 +423,23 @@ async function mostrarConta() {
   if (data) clienteLogado = data;
 
   document.getElementById('conta-nome-display').textContent = clienteLogado.nome;
-  document.getElementById('conta-info-display').textContent =
+  // Foto no avatar
+  const avatarEl = document.getElementById('conta-avatar');
+  if (avatarEl) {
+    if (clienteLogado.foto_url) {
+      avatarEl.innerHTML = `<img src="${clienteLogado.foto_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+    } else {
+      avatarEl.textContent = '👤';
+    }
+  }
+  const cpfLimpo = (clienteLogado.cpf || '').replace(/\D/g, '');
+  const id4 = cpfLimpo.slice(-4);
+  document.getElementById('conta-info-display').innerHTML =
     clienteLogado.periodicidade.charAt(0).toUpperCase()+clienteLogado.periodicidade.slice(1)+
-    ' • Venc. dia '+clienteLogado.dia_vencimento+' • '+clienteLogado.forma_pagamento;
+    ' • Venc. dia '+clienteLogado.dia_vencimento+' • '+clienteLogado.forma_pagamento +
+    '<br><span style="font-size:.72rem;color:var(--txt3);">ID: </span>' +
+    '<span style="font-weight:800;color:#00ffcc;font-size:.95rem;letter-spacing:2px;text-shadow:0 0 10px #00ffccaa;">'+id4+'</span>' +
+    '<span style="font-size:.68rem;color:var(--txt3);margin-left:4px;">— últimos 4 dígitos do seu CPF</span>';
 
   const badge = document.getElementById('conta-badge');
   const stMap = {ativo:'badge-ativo',pendente:'badge-pendente',bloqueado:'badge-bloqueado'};
@@ -606,21 +625,24 @@ function compartilharCobrancaWhatsApp() {
 
 // ==================== ENVIAR COMPROVANTE ====================
 function abrirEnviarComprovante() {
-  document.getElementById('inp-comp-file').value = '';
+  document.getElementById('inp-comp-camera').value = '';
+  document.getElementById('inp-comp-galeria').value = '';
   document.getElementById('inp-comp-obs').value = '';
   document.getElementById('comp-preview').innerHTML = '';
   document.getElementById('comp-upload-status').innerHTML = '';
   document.getElementById('modal-comp-pagamento').style.display = 'block';
-  document.getElementById('inp-comp-file').onchange = function() {
+  document.getElementById('inp-comp-camera').onchange = handleCompFile;
+  document.getElementById('inp-comp-galeria').onchange = handleCompFile;
+  function handleCompFile() {
     const f = this.files[0]; if (!f) return;
     const r = new FileReader();
     r.onload = e => { document.getElementById('comp-preview').innerHTML = '<img src="'+e.target.result+'" style="width:100%;max-height:200px;object-fit:contain;border-radius:8px;border:1px solid var(--borda);margin-bottom:8px;">'; };
     r.readAsDataURL(f);
-  };
+  }
 }
 
 async function enviarComprovantePagamento() {
-  const file = document.getElementById('inp-comp-file').files[0];
+  const file = (document.getElementById('inp-comp-camera').files[0]) || (document.getElementById('inp-comp-galeria').files[0]);
   const obs = document.getElementById('inp-comp-obs').value.trim();
   const statusEl = document.getElementById('comp-upload-status');
   if (!file) { toast('Selecione uma imagem','err'); return; }
