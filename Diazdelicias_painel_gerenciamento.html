@@ -15,7 +15,7 @@
 <style>
 :root{
   --rosa:#FF1493;--rosa-esc:#c2185b;--rosa-glow:rgba(255,20,147,0.5);
-  --azul:#00BFFF;--azul-esc:#2196f3;--azul-glow:rgba(0,191,255,0.45);
+  --azul: #00BFFF;--azul-esc:#2196f3;--azul-glow:rgba(0,191,255,0.45);
   --marrom:#8B4513;--marrom-glow:rgba(139,69,19,0.4);
   --ouro:#f5a623;--ouro-esc:#d4891c;--ouro-glow:rgba(245,166,35,0.3);
   --verde:#00c853;--verde-esc:#009624;--verde-glow:rgba(0,200,83,0.25);
@@ -293,24 +293,79 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;min-
   .pg{padding:10px;}
   .btn-ac{min-width:64px;font-size:.71rem;padding:7px 5px;}
 }
+
+.avatar-fallback {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--rosa-esc);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+    flex-shrink: 0;
+    border: 2px solid var(--rosa);
+    color: white;
+}
+
+.avatar-circular, .avatar-retangular {
+    object-fit: cover;
+    flex-shrink: 0;
+    background: var(--rosa-esc);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    border: 2px solid var(--rosa);
+}
+
+.avatar-circular { border-radius: 50%; width: 80px; height: 80px; font-size: 2rem; }
+.avatar-retangular { border-radius: 12px; width: 100px; height: 100px; font-size: 2rem; }
+
 </style>
 </head>
 <body>
 
 <div class="alert-indicator" id="alert-indicator">🔔 Novo Pedido!</div>
 
-<div class="header">
+<div class="header" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
   <div>
     <div class="logo neon-rosa">&#x1F36C; Diaz Delicias</div>
     <div class="logo-sub">Painel de Gerenciamento &middot; Cozinha &amp; Caixa</div>
   </div>
-  <div class="conn-area">
+  
+<div class="conn-area" style="display: flex; align-items: center; gap: 15px;">
+    
+    <div style="display: flex; flex-direction: column; gap: 4px; min-width: 210px; background: rgba(0,0,0,0.4); padding: 8px 12px; border-radius: 8px; border: 1px solid #00d2ff44; box-shadow: inset 0 0 10px #00d2ff11;">
+      <div style="display: flex; justify-content: space-between; font-size: 0.7rem; font-family: sans-serif;">
+        <span style="color: #00d2ff; text-shadow: 0 0 5px #00d2ff; font-weight: bold;">📦 DB: <span id="db-usado" style="color: #fff;">0.00 MB</span></span>
+        <span id="db-perc" style="color: #00d2ff; font-weight: bold; text-shadow: 0 0 8px #00d2ff;">0%</span>
+      </div>
+      <div style="width: 100%; height: 6px; background: #111; border-radius: 3px; overflow: hidden; border: 1px solid #00d2ff22;">
+        <div id="db-bar" style="height: 100%; width: 0%; background: #00d2ff; box-shadow: 0 0 15px #00d2ff; transition: width 0.8s ease;"></div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 4px; min-width: 210px; background: rgba(0,0,0,0.4); padding: 8px 12px; border-radius: 8px; border: 1px solid #39ff1444; box-shadow: inset 0 0 10px #39ff1411;">
+      <div style="display: flex; justify-content: space-between; font-size: 0.7rem; font-family: sans-serif;">
+        <span style="color: #39ff14; text-shadow: 0 0 5px #39ff14; font-weight: bold;">📂 Storage: <span id="st-usado" style="color: #fff;">0.00 MB</span></span>
+        <span id="st-perc" style="color: #39ff14; font-weight: bold; text-shadow: 0 0 8px #39ff14;">0%</span>
+      </div>
+      <div style="width: 100%; height: 6px; background: #111; border-radius: 3px; overflow: hidden; border: 1px solid #39ff1422;">
+        <div id="st-bar" style="height: 100%; width: 0%; background: #39ff14; box-shadow: 0 0 15px #39ff14; transition: width 0.8s ease;"></div>
+      </div>
+    </div>
+
+    <button onclick="limparBancoSupabase()" style="background: rgba(255, 77, 77, 0.1); color: #ff4d4d; border: 1px solid #ff4d4d; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; cursor: pointer; transition: all 0.3s;">
+      🗑️ Limpar
+    </button>
     <div class="conn-badge">
       <div class="conn-dot"></div>
-      <span id="conn-label">Conectando...</span>
+      <span id="conn-label">Conectado</span>
     </div>
-  </div>
 </div>
+</div>
+
 
 <div class="nav-tabs">
   <div class="nav-tab ativo" onclick="trocarPg('pg-principal',this)">&#x1F373; Cozinha &amp; Mesas</div>
@@ -320,6 +375,8 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;min-
   <div class="nav-tab" onclick="trocarPg('pg-garcom',this)">👨‍🍳 Garçom</div>
   <div class="nav-tab" onclick="trocarPg('pg-contas',this)">💰 Contas a Pagar</div>
   <div class="nav-tab" onclick="trocarPg('pg-fiado',this)">🤝 Clientes Fiados</div>
+  <div class="nav-tab" onclick="trocarPg('pg-relatorios',this); carregarRelatorioIA()">📊 Relatórios</div>
+</div>
 </div>
 
 <div id="pg-principal" class="pg ativa">
@@ -930,7 +987,7 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;min-
         <button class="btn-sec" style="flex:none;padding:8px 12px;" onclick="exportarFiado()">📊 Exportar</button>
       </div>
     </div>
-
+	
     <!-- RESUMO CARDS -->
     <div id="fiado-resumo" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px;"></div>
 
@@ -1036,6 +1093,41 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;min-
 
 <div id="toast-wrap" class="toast-wrap"></div>
 <div id="comanda-impressao"></div>
+
+	<div id="pg-relatorios" class="pg" style="padding:10px;">
+    <div class="sec-titulo neon-ouro" style="margin-bottom:20px;">📊 Relatório de Automação</div>
+    
+    <div id="container-estatisticas-ia">
+        </div>
+
+
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:12px; margin-bottom:20px;">
+        <div style="background:#1a1a1d; padding:15px; border-radius:10px; border-left:4px solid #00d2ff; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+            <span style="color:#aaa; font-size:0.75rem; display:block;">🤖 Validados por IA</span>
+            <h3 id="ia-count" style="color:white; margin:8px 0; font-size:1.5rem;">0</h3>
+            <span id="ia-money" style="color:#00ff00; font-size:0.9rem; font-weight:bold;">R$ 0,00</span>
+        </div>
+
+        <div style="background:#1a1a1d; padding:15px; border-radius:10px; border-left:4px solid #ff4d4d; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+            <span style="color:#aaa; font-size:0.75rem; display:block;">🚫 Recusados (Hoje)</span>
+            <h3 id="recusados-count" style="color:white; margin:8px 0; font-size:1.5rem;">0</h3>
+            <span id="recusados-money" style="color:#ff4d4d; font-size:0.9rem; font-weight:bold;">R$ 0,00</span>
+        </div>
+
+        <div style="background:#1a1a1d; padding:15px; border-radius:10px; border-left:4px solid #ffcc00; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+            <span style="color:#aaa; font-size:0.75rem; display:block;">💰 Total Recebido</span>
+            <h3 id="total-hoje-count" style="color:white; margin:8px 0; font-size:1.5rem;">0</h3>
+            <span id="total-hoje-money" style="color:#ffcc00; font-size:0.9rem; font-weight:bold;">R$ 0,00</span>
+        </div>
+    </div>
+
+    <div style="background:#1a1a1d; padding:15px; border-radius:10px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+        <h4 style="color:#e5b80b; margin-top:0; border-bottom:1px solid #333; padding-bottom:10px;">📋 Atividades Recentes</h4>
+        <div id="lista-logs-ia" style="color:#eee; font-size:0.85rem; max-height:400px; overflow-y:auto; padding-right:5px;">
+            Carregando movimentações...
+        </div>
+    </div>
+</div>
 
 <script>
 // ==================== CONFIGURAÇÕES ====================
@@ -1302,11 +1394,84 @@ function abrirModalMesa() {
   document.getElementById('modal-mesa').classList.add('show');
 }
 
+// DECLARAMOS ELA AQUI EM CIMA PARA O NAVEGADOR JÁ CONHECER
+async function carregarRelatorioIA() {
+    console.log("Chamando Relatório...");
+    const hoje = new Date().toISOString().split('T')[0];
+    
+    try {
+        // Trocado 'created_at' por 'data_transacao'
+        const { data: transacoes, error } = await db
+            .from('fiado_transacoes')
+            .select('*, clientes_fiado(nome)')
+            .gte('data_transacao', hoje); // <--- CORREÇÃO AQUI
+
+        if (error) throw error;
+        
+        const cardIA = document.getElementById('ia-count');
+        const moneyIA = document.getElementById('ia-money');
+        const cardRec = document.getElementById('recusados-count');
+        const moneyRec = document.getElementById('recusados-money');
+        const cardTot = document.getElementById('total-hoje-count');
+        const moneyTot = document.getElementById('total-hoje-money');
+
+        if(cardIA){
+            const valIA = transacoes.filter(t => t.validado_por === 'ia' && t.status_pagamento === 'validado');
+            cardIA.innerText = valIA.length;
+            moneyIA.innerText = `R$ ${valIA.reduce((acc, t) => acc + (parseFloat(t.valor) || 0), 0).toFixed(2)}`;
+        }
+
+        if(cardRec){
+            const recusados = transacoes.filter(t => t.status_pagamento === 'recusado');
+            cardRec.innerText = recusados.length;
+            moneyRec.innerText = `R$ ${recusados.reduce((acc, t) => acc + (parseFloat(t.valor) || 0), 0).toFixed(2)}`;
+        }
+
+        if(cardTot){
+            const todosValidos = transacoes.filter(t => t.status_pagamento === 'validado');
+            cardTot.innerText = todosValidos.length;
+            moneyTot.innerText = `R$ ${todosValidos.reduce((acc, t) => acc + (parseFloat(t.valor) || 0), 0).toFixed(2)}`;
+        }
+
+        const lista = document.getElementById('lista-logs-ia');
+        if (lista) {
+            lista.innerHTML = transacoes.length === 0 ? '<div style="padding:10px;color:#888;">Nenhuma atividade hoje.</div>' : '';
+            
+            // Usando 'data_transacao' aqui também para a hora
+            transacoes.reverse().forEach(t => {
+                const hora = new Date(t.data_transacao).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+                const nome = t.clientes_fiado ? t.clientes_fiado.nome : 'Cliente';
+                const tag = t.validado_por === 'ia' ? '🤖' : '👤';
+                const cor = t.status_pagamento === 'recusado' ? '#ff4d4d' : '#00ff00';
+                
+                lista.innerHTML += `
+                    <div style="border-bottom:1px solid #333; padding:10px 0; display:flex; justify-content:space-between;">
+                        <span>${tag} <b>${hora}</b> - ${nome}</span>
+                        <span style="color:${cor}; font-weight:bold;">R$ ${parseFloat(t.valor).toFixed(2)}</span>
+                    </div>`;
+            });
+        }
+    } catch (e) { 
+        console.error("Erro Relatório:", e); 
+    }
+}
+
 function trocarPg(id, el) {
-  document.querySelectorAll('.nav-tab').forEach(function(t) { t.classList.remove('ativo'); });
-  el.classList.add('ativo');
-  document.querySelectorAll('.pg').forEach(function(p) { p.classList.remove('ativa'); });
-  document.getElementById(id).classList.add('ativa');
+  // 1. Gerencia as classes dos botões (abas)
+  document.querySelectorAll('.nav-tab').forEach(function(t) { 
+      t.classList.remove('ativo'); 
+  });
+  if (el) el.classList.add('ativo');
+
+  // 2. Gerencia a visibilidade das páginas
+  document.querySelectorAll('.pg').forEach(function(p) { 
+      p.classList.remove('ativa'); 
+  });
+  
+  const targetPg = document.getElementById(id);
+  if (targetPg) targetPg.classList.add('ativa');
+
+  // 3. Gatilhos de carregamento de dados por página
   if (id === 'pg-principal') { carregarPedidos(); carregarMesasMini(); }
   if (id === 'pg-cardapio') { carregarProdutos(); carregarDiaLista(); }
   if (id === 'pg-historico') carregarHistorico();
@@ -1315,23 +1480,30 @@ function trocarPg(id, el) {
     initContasAno();
     renderContas();
   }
+  
+  if (id === 'pg-relatorios') {
+    carregarRelatorioIA();
+  }
+
+  // Lógica do FIADO
   if (id === 'pg-fiado') {
-    // Verificar PIN antes de mostrar conteúdo
     document.getElementById('fiado-pin-tela').style.display = 'flex';
     document.getElementById('fiado-conteudo').style.display = 'none';
     document.getElementById('fiado-pin-input').value = '';
     document.getElementById('fiado-pin-erro').style.display = 'none';
   }
+
+  // Lógica do GARÇOM
   if (id === 'pg-garcom') {
     verificarSessaoGarcom();
-    // Polling de 5s para atualizar status em tempo real
     clearInterval(_garcomPolling);
     _garcomPolling = setInterval(verificarSessaoGarcom, 5000);
   } else {
     clearInterval(_garcomPolling);
     _garcomPolling = null;
   }
-}
+} // <--- ESTA É A ÚNICA CHAVE QUE DEVE EXISTIR AQUI
+
 
 // ==================== CAIXA ====================
 function desbloqCaixa() {
@@ -1722,9 +1894,14 @@ function filtrar(status, el) {
   carregarPedidos();
 }
 
+
 function pedCardHTML(p) {
   const itens = Array.isArray(p.order_details) ? p.order_details : [];
-  const isNovo = !pedidosConhecidos.has(p.id);
+  const isNovo = typeof pedidosConhecidos !== 'undefined' && !pedidosConhecidos.has(p.id);
+  const isViagem = !p.mesa_id;
+  const jaPago = isViagem && p.forma_pagamento && p.forma_pagamento !== 'Pagar depois';
+
+  // 1. Montagem da lista de itens
   let itensHTML = '';
   if (itens.length) {
     for (let i = 0; i < itens.length; i++) {
@@ -1739,68 +1916,118 @@ function pedCardHTML(p) {
     itensHTML = '<div style="color:var(--txt3);font-size:.78rem;padding:4px 0">Sem itens</div>';
   }
 
+  // 2. Botões de Status (Cozinha)
   let btnPrep = '';
   if (p.status === 'PENDENTE') {
-    btnPrep = '<button class="btn-ac btn-prep" onclick="mudarStatus(' + p.id + ',\'PREPARANDO\',' + p.mesa_id + ')">Preparando</button>';
+    btnPrep = '<button class="btn-ac btn-prep" onclick="mudarStatus(' + p.id + ',\'PREPARANDO\',' + (p.mesa_id || 0) + ')">Preparando</button>';
   }
-
   let btnPronto = '';
   if (p.status === 'PREPARANDO') {
-    btnPronto = '<button class="btn-ac btn-pronto" onclick="mudarStatus(' + p.id + ',\'PRONTO\',' + p.mesa_id + ')">Pronto</button>';
+    btnPronto = '<button class="btn-ac btn-pronto" onclick="mudarStatus(' + p.id + ',\'PRONTO\',' + (p.mesa_id || 0) + ')">Pronto</button>';
+  }
+  
+  function executarRecusa(id, clienteId, valor) {
+    if(!confirm('Deseja realmente recusar este pagamento?')) return;
+
+    // 1. Desabilita o botão e muda o texto para evitar duplo clique
+    const btn = document.getElementById(`btn-recusar-${id}`);
+    if(btn) {
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+        btn.style.cursor = 'not-allowed';
+        btn.innerHTML = 'Processando...';
+    }
+
+    // 2. Executa a função de estorno no banco de dados
+    if (typeof estornarPagamentoIA === 'function') {
+        estornarPagamentoIA(id, clienteId, valor);
+    }
+
+    // 3. Atualiza o visual: remove o botão e mostra o texto de recusado
+    setTimeout(() => {
+        const container = document.getElementById(`status-pix-${id}`);
+        if(container) {
+            if(btn) btn.remove(); // Remove apenas o botão de recusa
+            
+            const span = document.createElement('span');
+            span.style.color = '#ff4d4d';
+            span.style.fontSize = '0.65rem';
+            span.style.fontWeight = 'bold';
+            span.style.marginLeft = '4px';
+            span.innerHTML = '🚫 Comprovante Recusado';
+            container.appendChild(span);
+        }
+    }, 500); // Pequeno delay para o usuário ver o "Processando"
+}
+
+  // 3. Detalhes (Observação, Pix IA e Recusa)
+  let detalhesHTML = '';
+  if (p.observacao) detalhesHTML += '<div class="ped-obs">💬 ' + p.observacao + '</div>';
+  if (p.forma_pagamento) detalhesHTML += '<div class="ped-pagamento">💳 ' + p.forma_pagamento + '</div>';
+
+  if (p.comprovante_dados && p.comprovante_dados.url) {
+    detalhesHTML += `
+        <div style="margin-top:8px; display:flex; gap:5px;">
+            <a href="${p.comprovante_dados.url}" target="_blank" 
+               style="background:var(--azul); color:white; padding:3px 8px; border-radius:4px; font-size:10px; text-decoration:none;">
+               📄 Ver Pix
+            </a>
+            <button onclick="estornarPagamentoIA('${p.id}', '${p.cliente_id}', ${p.total_value})" 
+                    style="background:#ff4d4d; color:white; border:none; padding:3px 8px; border-radius:4px; font-size:10px; cursor:pointer; font-weight:bold;">
+               ❌ Recusar
+            </button>
+        </div>`;
   }
 
-  let detalhes = '';
-  if (p.client_name) detalhes += '<div class="ped-cliente">👤 ' + p.client_name + '</div>';
-  if (p.observacao) detalhes += '<div class="ped-obs">💬 ' + p.observacao + '</div>';
-  if (p.forma_pagamento) detalhes += '<div class="ped-pagamento">💳 ' + p.forma_pagamento + '</div>';
-
-  const isViagem = !p.mesa_id;
-  const jaPago = isViagem && p.forma_pagamento && p.forma_pagamento !== 'Pagar depois';
-  // Mostrar Mesa X + nome da comanda (se tiver) ou 🛵 Viagem para pedidos sem mesa
-  // Mostrar: Mesa X | Comanda Y | Nome do cliente
-  const labelMesa = p.mesa_numero
-    ? 'Mesa ' + p.mesa_numero
-    : '🛵 Viagem';
-  // Linha extra: comanda + cliente (para mesa) | badge viagem + cliente (para viagem)
-  const subLabel = p.mesa_numero
+  // 4. Cabeçalho (Mesa/Viagem)
+  const labelMesa = p.mesa_numero ? 'Mesa ' + p.mesa_numero : '🛵 Viagem';
+  const subLabel = p.mesa_id
     ? (p.nome_comanda ? '<span style="font-size:.72rem;color:var(--ouro);font-weight:600;">' + p.nome_comanda + '</span>' : '') +
       (p.client_name ? '<span style="font-size:.72rem;color:var(--txt2);"> • 👤 ' + p.client_name + '</span>' : '')
     : '<span style="background:rgba(76,201,240,.15);border:1px solid var(--azul);color:var(--azul);font-size:.68rem;font-weight:700;padding:1px 6px;border-radius:4px;">🛵 PEDIDO VIAGEM</span>' +
       (p.client_name ? ' <span style="font-size:.72rem;color:var(--txt2);">• 👤 ' + p.client_name + '</span>' : '');
+
   const statusTag = jaPago ? 'PAGO' : p.status;
   const statusLabel = jaPago ? '✅ PAGO' : p.status;
-  const btnFechar = '<button class="btn-ac btn-fechar-cmd" onclick="abrirModalFechamento(' + p.id + ',' + p.mesa_id + ')">' + (isViagem ? '✅ Concluir' : 'Fechar') + '</button>';
-  const btnCancelar = '<button class="btn-ac btn-cancelar-cmd" onclick="cancelarComanda(' + p.id + ')">🗑 Cancelar</button>';
 
-  return '<div class="ped-card ' + (isNovo ? 'novo neon' : '') + '">' +
-    '<div class="ped-hdr">' +
-    '<div><div class="ped-mesa">' + labelMesa + '</div>' + (subLabel ? '<div style="margin-top:1px;">' + subLabel + '</div>' : '') + detalhes + '</div>' +
-    '<div style="display:flex;align-items:center;gap:7px;">' +
-    '<span class="ped-hora">' + formatarHoraBR(p.created_at) + '</span>' +
-    '<span class="stag stag-' + statusTag + '">' + statusLabel + '</span>' +
-    '</div></div>' +
-    '<div class="ped-itens">' + itensHTML + '</div>' +
-    '<div class="ped-total">Total: ' + R(p.total_value || 0) + '</div>' +
-    // AJ3: Alerta de bebidas pendentes
-    (bebidasPendentes[p.id] && bebidasPendentes[p.id].length ? 
-      '<div style="background:rgba(76,201,240,.12);border:1px solid var(--azul);border-radius:8px;padding:8px 10px;margin:6px 0;">' +
-      '<div style="font-size:.72rem;color:var(--azul);font-weight:700;margin-bottom:5px;">🥤 BEBIDAS PENDENTES — Aguardando entrega</div>' +
+  // 5. Bebidas Pendentes
+  let bebidasHTML = '';
+  if (typeof bebidasPendentes !== 'undefined' && bebidasPendentes[p.id]?.length) {
+    bebidasHTML = '<div style="background:rgba(76,201,240,.12);border:1px solid var(--azul);border-radius:8px;padding:8px 10px;margin:6px 0;">' +
+      '<div style="font-size:.72rem;color:var(--azul);font-weight:700;margin-bottom:5px;">🥤 BEBIDAS PENDENTES</div>' +
       bebidasPendentes[p.id].map(b => 
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">' +
         '<span style="font-size:.78rem;">' + b.qty + 'x ' + b.name + '</span>' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">' +
-        '<span style="font-size:.78rem;">' + b.qty + 'x ' + b.name + '</span>' +
-        '<button onclick="entregarBebida(' + p.id + ', this.dataset.nome)" data-nome="' + b.name.replace(/"/g,'&quot;') + '" style="background:var(--azul);color:#000;border:none;border-radius:5px;padding:2px 8px;font-size:.72rem;font-weight:700;cursor:pointer;">✅ Entregue</button>' +
+        '<button onclick="entregarBebida(' + p.id + ', \'' + b.name.replace(/'/g, "\\'") + '\')" style="background:var(--azul);color:#000;border:none;border-radius:5px;padding:2px 8px;font-size:.72rem;font-weight:700;cursor:pointer;">✅ Entregue</button>' +
         '</div>'
-      ).join('') +
-      '</div>' : '') +
-    '<div class="ped-actions">' +
-    btnPrep + btnPronto +
-    '<button class="btn-ac btn-add-item" onclick="abrirAddItem(' + p.id + ')">+ Item</button>' +
-    btnFechar +
-    '<button class="btn-ac btn-imprimir" id="btn-print-' + p.id + '" onclick="marcarImpresso(' + p.id + ')">🖨️ Print</button>' +
-    btnCancelar +
-    '</div></div>';
+      ).join('') + '</div>';
+  }
+
+  // 6. RETORNO FINAL ÚNICO
+  return `
+    <div class="ped-card ${isNovo ? 'novo neon' : ''}" id="ped-${p.id}">
+      <div class="ped-hdr">
+        <div>
+          <div class="ped-mesa">${labelMesa}</div>
+          <div style="margin-top:1px;">${subLabel}</div>
+          ${detalhesHTML}
+        </div>
+        <div style="display:flex;align-items:center;gap:7px;">
+          <span class="ped-hora">${typeof formatarHoraBR === 'function' ? formatarHoraBR(p.created_at) : ''}</span>
+          <span class="stag stag-${statusTag}">${statusLabel}</span>
+        </div>
+      </div>
+      <div class="ped-itens">${itensHTML}</div>
+      <div class="ped-total">Total: ${R(p.total_value || 0)}</div>
+      ${bebidasHTML}
+      <div class="ped-actions">
+        ${btnPrep} ${btnPronto}
+        <button class="btn-ac btn-add-item" onclick="abrirAddItem(${p.id})">+ Item</button>
+        <button class="btn-ac btn-fechar-cmd" onclick="abrirModalFechamento(${p.id}, ${p.mesa_id || 0})">${isViagem ? '✅ Concluir' : 'Fechar'}</button>
+        <button class="btn-ac btn-imprimir" id="btn-print-${p.id}" onclick="marcarImpresso(${p.id})">🖨️ Print</button>
+        <button class="btn-ac btn-cancelar-cmd" onclick="cancelarComanda(${p.id})">🗑 Cancelar</button>
+      </div>
+    </div>`;
 }
 
 
@@ -3881,117 +4108,151 @@ function filtrarFiado() {
 
 function renderListaFiado(lista) {
   const el = document.getElementById('fiado-lista');
-  if (!lista.length) { el.innerHTML = '<div class="empty-st"><span class="e-icon">🤝</span>Nenhum cliente encontrado</div>'; return; }
-  const stMap = {ativo:'fc-ativo',pendente_aprovacao:'fc-pendente',bloqueado:'fc-bloqueado'};
-  const stLabel = {ativo:'✅ Ativo',pendente_aprovacao:'⏳ Pendente Aprovação',bloqueado:'🔒 Bloqueado'};
+  if (!el) return;
+  if (!lista.length) { el.innerHTML = '<div class="empty-st">Nenhum cliente encontrado</div>'; return; }
+
+  const stMap = {ativo:'fc-ativo', pendente_aprovacao:'fc-pendente', bloqueado:'fc-bloqueado'};
+  const stLabel = {ativo:'✅ Ativo', pendente_aprovacao:'⏳ Pendente', bloqueado:'🔒 Bloqueado'};
+
   el.innerHTML = lista.map(c => {
-    const usado = parseFloat(c.saldo_usado||0), lim = parseFloat(c.limite_max||100);
-    const pct = Math.min(100,(usado/lim)*100);
-    const cor = pct>80?'var(--vermelho)':pct>50?'var(--ouro)':'var(--verde)';
-    const disp = Math.max(0, lim - usado);
-    const fotoHtml = c.foto_url
-      ? `<img src="${c.foto_url}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid var(--rosa);box-shadow:0 0 10px var(--rosa-glow);flex-shrink:0;">`
-      : `<div style="width:56px;height:56px;border-radius:50%;background:var(--rosa-esc);display:flex;align-items:center;justify-content:center;font-size:1.6rem;flex-shrink:0;border:2px solid var(--rosa);box-shadow:0 0 10px var(--rosa-glow);">👤</div>`;
+    const usado = parseFloat(c.saldo_usado || 0);
+    const lim = parseFloat(c.limite_max || 100);
+    const pct = Math.min(100, (usado / lim) * 100);
+    const cor = pct > 80 ? 'var(--vermelho)' : pct > 50 ? 'var(--ouro)' : 'var(--verde)';
+    const disp = parseFloat(c.credito_disponivel || (lim - usado));
+    
+   // Tenta pegar a URL de qualquer um dos campos possíveis
+const linkFoto = c.avatar_url || c.foto_url || '';
+const foto = linkFoto 
+    ? `<img src="${linkFoto}" class="avatar-circular" onerror="this.outerHTML='<div class=\'avatar-circular\'>👤</div>'">`
+    : `<div class="avatar-circular">👤</div>`;
+
     return `<div class="fc-card">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;gap:10px;">
-        ${fotoHtml}
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;gap:12px;">
+        ${foto}
         <div style="flex:1;">
-          <div style="font-weight:700;font-size:.9rem;">${c.nome}</div>
-          <div style="font-size:.72rem;color:var(--txt2);">CPF: ${c.cpf} • ${c.whatsapp}</div>
+          <div style="font-weight:700;font-size:.95rem;color:#fff;">${c.nome}</div>
+          <div style="font-size:.72rem;color:var(--txt2);">💳 ${c.cpf}<br>📱 ${c.whatsapp}</div>
         </div>
-        <span class="fc-badge ${stMap[c.status]||'fc-pendente'}">${stLabel[c.status]||c.status}</span>
+        <span class="fc-badge ${stMap[c.status] || 'fc-pendente'}">${stLabel[c.status] || c.status}</span>
       </div>
-      <div>
-        <div style="display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:2px;">
-          <span style="color:var(--txt2);">Usado: ${R(usado)} / Limite: ${R(lim)}</span>
-          <span style="color:${cor};font-weight:700;">Disp: ${R(disp)}</span>
+      <div style="margin-top:12px;">
+        <div style="display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:5px;">
+          <span style="color:var(--txt2);">Usado: <strong>${R(usado)}</strong></span>
+          <span style="color:${cor};font-weight:800;">Disp: ${R(disp)}</span>
         </div>
         <div class="saldo-bar-f"><div class="saldo-fill-f" style="width:${pct}%;background:${cor};"></div></div>
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;flex-wrap:wrap;gap:6px;">
-        <div style="display:flex;gap:6px;font-size:.72rem;flex-wrap:wrap;">
-          <span style="background:var(--card2);border-radius:5px;padding:2px 8px;">📅 ${c.periodicidade==='mensal'?'Mensal':'Quinzenal'} · Dia ${c.dia_vencimento}</span>
-          <span style="background:var(--card2);border-radius:5px;padding:2px 8px;">${c.forma_pagamento==='PIX'?'🔵':'📄'} ${c.forma_pagamento}</span>
-          ${c.limite_max ? `<span style="background:var(--card2);border-radius:5px;padding:2px 8px;">🎯 Limite: ${R(c.limite_max)}</span>` : ''}
-        </div>
-        <button onclick="abrirDetalheFiado('${c.id}')" style="background:rgba(245,166,35,.15);color:var(--ouro);border:1px solid var(--ouro);border-radius:7px;padding:5px 12px;font-size:.75rem;font-weight:700;cursor:pointer;white-space:nowrap;">📋 Detalhes</button>
+      <div style="display:flex;justify-content:flex-end;margin-top:12px;">
+        <button onclick="abrirDetalheFiado('${c.id}')" class="btn-detalhes">📋 DETALHES</button>
       </div>
     </div>`;
   }).join('');
 }
 
 async function abrirDetalheFiado(id) {
-  fiadoDetalheId = id;
-  const c = fiadoClientes.find(x => String(x.id) === String(id));
-  if (!c) return;
-  const usado = parseFloat(c.saldo_usado||0), lim = parseFloat(c.limite_max||100), disp = Math.max(0,lim-usado);
-  const pct = Math.min(100,(usado/lim)*100), cor = pct>80?'var(--vermelho)':pct>50?'var(--ouro)':'var(--verde)';
-  const stMap = {ativo:'fc-ativo',pendente_aprovacao:'fc-pendente',bloqueado:'fc-bloqueado'};
-  const stLabel = {ativo:'✅ Ativo',pendente_aprovacao:'⏳ Pendente Aprovação',bloqueado:'🔒 Bloqueado'};
+    fiadoDetalheId = id;
+    const c = fiadoClientes.find(x => String(x.id) === String(id));
+    if (!c) return;
 
-  document.getElementById('fiado-det-header').innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
-      <div>
-        <div style="font-size:1rem;font-weight:800;">${c.nome}</div>
-        <div style="font-size:.75rem;color:var(--txt2);">CPF: ${c.cpf} • WhatsApp: ${c.whatsapp}</div>
-        <div style="font-size:.75rem;color:var(--txt2);">📅 ${c.periodicidade==='mensal'?'Mensal':'Quinzenal'} · Dia ${c.dia_vencimento} · ${c.forma_pagamento}</div>
-      </div>
-      <span class="fc-badge ${stMap[c.status]||'fc-pendente'}">${stLabel[c.status]||c.status}</span>
+    // 1. Header e Saldo
+    const usado = parseFloat(c.saldo_usado || 0);
+    const lim = parseFloat(c.limite_max || 100);
+    const disp = parseFloat(c.credito_disponivel || (lim - usado));
+    const pct = Math.min(100, (usado / lim) * 100);
+    const cor = pct > 80 ? 'var(--vermelho)' : pct > 50 ? 'var(--ouro)' : 'var(--verde)';
+    
+  const linkFotoDet = c.avatar_url || c.foto_url || '';
+const fotoDet = linkFotoDet 
+    ? `<img src="${linkFotoDet}" class="avatar-retangular" onerror="this.outerHTML='<div class=\'avatar-retangular\'>👤</div>'">`
+    : `<div class="avatar-retangular">👤</div>`;
+
+// No innerHTML do header, use a variável fotoDet:
+document.getElementById('fiado-det-header').innerHTML = `
+    <div style="display:flex;align-items:center;gap:15px;margin-bottom:15px;">
+        ${fotoDet}
+        <div style="flex:1;">
+            <div style="font-size:1.1rem;font-weight:900;color:#fff;">${c.nome}</div>
+            <div style="font-size:.75rem;color:var(--txt2);">💳 CPF: ${c.cpf} | 📱 Whats: ${c.whatsapp}</div>
+        </div>
     </div>`;
 
-  document.getElementById('fiado-det-saldo').innerHTML = `
-    <div style="background:var(--card2);border-radius:10px;padding:12px;">
-      <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:4px;">
-        <span style="color:var(--txt2);">Saldo usado</span><span style="font-weight:800;">${R(usado)} / ${R(lim)}</span>
-      </div>
-      <div class="saldo-bar-f" style="height:10px;"><div class="saldo-fill-f" style="width:${pct}%;background:${cor};"></div></div>
-      <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:.78rem;">
-        <span style="color:${cor};font-weight:700;">Disponível: ${R(disp)}</span>
-        <span style="color:var(--txt2);">${pct.toFixed(0)}% usado</span>
-      </div>
-    </div>`;
+    document.getElementById('fiado-det-saldo').innerHTML = `
+        <div style="background:var(--card2);border-radius:10px;padding:12px;">
+            <div style="display:flex;justify-content:space-between;font-size:.85rem;margin-bottom:6px;">
+                <span style="color:var(--txt2);">Saldo usado</span>
+                <span style="font-weight:800;">${R(usado)} / ${R(lim)}</span>
+            </div>
+            <div class="saldo-bar-f"><div class="saldo-fill-f" style="width:${pct}%;background:${cor};"></div></div>
+            <div style="margin-top:8px;font-weight:900;color:${cor};">Disponível: ${R(disp)}</div>
+        </div>`;
 
-  // Botões baseados no status do cliente
-  let btnsHtml = '';
-  if (c.status === 'pendente_aprovacao') {
-    // PENDENTE: mostrar botão Aprovar em destaque + Recusar
-    btnsHtml = `
-      <div style="background:rgba(255,183,3,.1);border:1px solid var(--ouro);border-radius:8px;padding:10px;margin-bottom:10px;text-align:center;">
-        <div style="font-size:.78rem;color:var(--ouro);margin-bottom:8px;font-weight:700;">⏳ Aguardando aprovação da cozinha</div>
-        <div style="font-size:.72rem;color:var(--txt2);margin-bottom:10px;">Defina o limite antes de aprovar</div>
-        <div style="display:flex;gap:6px;justify-content:center;align-items:center;margin-bottom:6px;">
-          <input type="number" id="input-limite-aprovacao" class="form-input" placeholder="Limite R$" step="0.01" style="max-width:140px;text-align:center;">
-        </div>
-        <div style="display:flex;gap:8px;justify-content:center;">
-          <button onclick="aprovarClienteFiado('${c.id}')" style="background:var(--verde-esc);color:#000;border:none;border-radius:8px;padding:10px 20px;font-size:.85rem;font-weight:800;cursor:pointer;">✅ Aprovar Cliente</button>
-          <button onclick="recusarClienteFiado('${c.id}')" style="background:rgba(255,71,87,.2);color:var(--vermelho);border:1px solid var(--vermelho);border-radius:8px;padding:10px 16px;font-size:.82rem;font-weight:700;cursor:pointer;">❌ Recusar</button>
-        </div>
-      </div>`;
-  } else {
-    btnsHtml = `
-      <button onclick="abrirPagamentoFiado('${c.id}')" style="background:var(--verde-esc);color:#000;border:none;border-radius:8px;padding:8px 14px;font-size:.8rem;font-weight:700;cursor:pointer;">💰 Registrar Pagamento</button>
-      <button onclick="abrirModalDefinirLimite('${c.id}')" style="background:rgba(255,183,3,.15);color:var(--ouro);border:1px solid var(--ouro);border-radius:8px;padding:8px 14px;font-size:.8rem;font-weight:700;cursor:pointer;">💳 Definir Limite</button>
-      <button onclick="editarClienteFiado('${c.id}')" style="background:rgba(0,191,255,.25);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:.8rem;font-weight:700;cursor:pointer;">✏️ Editar</button>
-      <button onclick="alterarStatusFiado('${c.id}')" style="background:var(--card2);color:var(--txt2);border:1px solid var(--borda);border-radius:8px;padding:8px 14px;font-size:.8rem;font-weight:700;cursor:pointer;">🔄 Status</button>`;
-  }
-  document.getElementById('fiado-det-btns').innerHTML = btnsHtml;
+    // 2. Botões de Ação
+    let btnsHtml = '';
+    if (c.status === 'pendente_aprovacao') {
+        btnsHtml = `
+            <div style="background:rgba(255,183,3,.1);border:1px solid var(--ouro);border-radius:8px;padding:10px;margin-bottom:10px;text-align:center;">
+                <div style="font-size:.78rem;color:var(--ouro);margin-bottom:8px;font-weight:700;">⏳ Aguardando aprovação</div>
+                <input type="number" id="input-limite-aprovacao" class="form-input" placeholder="Limite R$" step="0.01" style="max-width:140px;margin-bottom:10px;text-align:center;">
+                <div style="display:flex;gap:8px;justify-content:center;">
+                    <button onclick="aprovarClienteFiado('${c.id}')" style="background:var(--verde-esc);color:#000;border:none;border-radius:8px;padding:10px 15px;font-weight:800;cursor:pointer;">✅ Aprovar</button>
+                    <button onclick="recusarClienteFiado('${c.id}')" style="background:rgba(255,71,87,.2);color:var(--vermelho);border:1px solid var(--vermelho);border-radius:8px;padding:10px 15px;font-weight:700;cursor:pointer;">❌ Recusar</button>
+                </div>
+            </div>`;
+    } else {
+        btnsHtml = `
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button onclick="abrirPagamentoFiado('${c.id}')" style="background:var(--verde-esc);color:#000;padding:8px 14px;border-radius:8px;font-weight:700;cursor:pointer;border:none;">💰 Pagar</button>
+                <button onclick="abrirModalDefinirLimite('${c.id}')" style="background:rgba(255,183,3,.15);color:var(--ouro);padding:8px 14px;border:1px solid var(--ouro);border-radius:8px;font-weight:700;cursor:pointer;">💳 Limite</button>
+                <button onclick="editarClienteFiado('${c.id}')" style="background:rgba(0,191,255,.2);color:#fff;padding:8px 14px;border-radius:8px;font-weight:700;cursor:pointer;border:none;">✏️ Editar</button>
+            </div>`;
+    }
+    document.getElementById('fiado-det-btns').innerHTML = btnsHtml;
 
-  // Buscar transações
-  const { data: trans } = await db.from('fiado_transacoes')
-    .select('*').eq('cliente_id', c.id)
-    .order('data_transacao', { ascending: false }).limit(30);
+    // 3. Buscar transações (DENTRO DA FUNÇÃO ASYNC)
+    const { data: trans } = await db.from('fiado_transacoes')
+        .select('*').eq('cliente_id', c.id)
+        .order('data_transacao', { ascending: false }).limit(30);
 
-  const tHTML = (trans && trans.length) ? trans.map(t => {
-    const cor2 = t.tipo==='pagamento'?'var(--verde)':'var(--vermelho)', sinal = t.tipo==='pagamento'?'+':'-';
-    const dt = new Date(t.data_transacao).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
-    const cBtn = (t.comprovante_dados && t.tipo==='consumo') ? '<button onclick="verComprovanteFiado(this)" data-comp="'+encodeURIComponent(JSON.stringify(t.comprovante_dados))+'" style="background:rgba(255,183,3,.15);color:var(--ouro);border:1px solid var(--ouro);border-radius:5px;padding:2px 8px;font-size:.68rem;cursor:pointer;margin-top:3px;">🧾 Comprovante</button>' : '';
-    return `<div class="trans-row"><div><div style="font-weight:600;">${t.descricao||(t.tipo==='pagamento'?'Pagamento':'Consumo')}</div><div style="font-size:.7rem;color:var(--txt2);">${dt}${t.mesa?' · Mesa '+t.mesa:''}</div>${cBtn}</div><div style="font-weight:800;color:${cor2};white-space:nowrap;">${sinal}${R(t.valor)}</div></div>`;
-  }).join('') : '<div style="color:var(--txt3);text-align:center;padding:14px;font-size:.82rem;">Nenhuma movimentação</div>';
+    const tHTML = (trans && trans.length) ? trans.map(t => {
+        const cor2 = t.tipo==='pagamento'?'var(--verde)':'var(--vermelho)', sinal = t.tipo==='pagamento'?'+':'-';
+        const dt = new Date(t.data_transacao).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
+        
+        let cBtn = '';
+        if (t.comprovante_dados) {
+            if (t.tipo === 'consumo') {
+                cBtn = `<button onclick="verComprovanteFiado(this)" data-comp="${encodeURIComponent(JSON.stringify(t.comprovante_dados))}" style="background:rgba(255,183,3,.15);color:var(--ouro);border:1px solid var(--ouro);border-radius:5px;padding:2px 8px;font-size:.68rem;cursor:pointer;margin-top:3px;display:inline-block;">🧾 Ver Consumo</button>`;
+            } else if (t.tipo === 'pagamento' && t.comprovante_dados.url) {
+                const isRecusado = t.status_pagamento === 'recusado';
+                cBtn = `
+                  <div id="status-pix-${t.id}" style="display:flex; gap:6px; margin-top:4px; align-items:center;">
+                    <a href="${t.comprovante_dados.url}" target="_blank" style="background:var(--azul);color:#fff;text-decoration:none;border-radius:5px;padding:3px 8px;font-size:.68rem;display:inline-block;">📄 Ver Pix (IA)</a>
+                    ${isRecusado ? 
+                        `<span style="color:#ff4d4d; font-size:0.7rem; font-weight:bold; padding:3px 8px; background:rgba(255, 77, 77, 0.1); border-radius:4px;">🚫 Recusado</span>` : 
+                        `<button onclick="executarRecusa('${t.id}', '${t.cliente_id}', ${t.valor})" id="btn-recusar-${t.id}" style="background:#ff4d4d; color:white; border:none; border-radius:5px; padding:3px 8px; font-size:.68rem; cursor:pointer; font-weight:bold;">❌ Recusar</button>`
+                    }
+                  </div>`;
+            }
+        }
 
-  document.getElementById('fiado-det-trans').innerHTML = `
-    <div style="font-size:.75rem;font-weight:700;color:var(--txt2);text-transform:uppercase;margin-bottom:8px;">📋 Movimentações</div>${tHTML}`;
+        return `
+            <div class="trans-row" style="background:rgba(255,255,255,0.03);padding:10px;border-radius:8px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                    <div style="font-weight:600;color:#fff;">${t.descricao || (t.tipo === 'pagamento' ? 'Pagamento' : 'Consumo')}</div>
+                    <div style="font-size:.7rem;color:var(--txt2);">${dt}${t.mesa ? ' · Mesa ' + t.mesa : ''}</div>
+                    ${cBtn}
+                </div>
+                <div style="font-weight:800;color:${cor2};white-space:nowrap;">${sinal} ${R(t.valor)}</div>
+            </div>`;
+    }).join('') : '<div style="color:var(--txt3);text-align:center;padding:14px;font-size:.82rem;">Nenhuma movimentação</div>';
 
-  document.getElementById('modal-fiado-detalhe').classList.add('show');
+    document.getElementById('fiado-det-trans').innerHTML = `
+        <div style="font-size:.75rem;font-weight:700;color:var(--txt2);text-transform:uppercase;margin-bottom:8px;">📋 Movimentações</div>
+        ${tHTML}`;
+
+    // 4. Abrir o Modal
+    const modal = document.getElementById('modal-fiado-detalhe') || document.getElementById('fiado-modal-detalhe');
+    if(modal) modal.classList.add('show');
 }
 
 function abrirModalNovoFiado() {
@@ -4072,9 +4333,14 @@ async function confirmarPagamentoFiado() {
   if (!c) return;
   const novoSaldo = Math.max(0, parseFloat(c.saldo_usado||0) - valor);
 
-  // Registrar transação
+// Registrar transação MANUAL
   const { error: e1 } = await db.from('fiado_transacoes').insert([{
-    cliente_id: id, tipo: 'pagamento', valor, descricao: obs || 'Pagamento recebido',
+    cliente_id: id, 
+    tipo: 'pagamento', 
+    valor, 
+    descricao: obs || 'Pagamento recebido',
+    validado_por: 'manual', // <--- DEFINE COMO MANUAL
+    status_pagamento: 'validado',
     data_transacao: new Date().toISOString()
   }]);
   if (e1) { toast('Erro ao registrar transação', 'err'); return; }
@@ -4114,6 +4380,50 @@ async function recusarClienteFiado(id) {
   fecharModal('modal-fiado-detalhe');
   toast('❌ Cadastro recusado');
   carregarClientesFiado();
+}
+
+// ===== FUNÇÃO PARA O BOTÃO DA COZINHA =====
+async function estornarPagamentoIA(pedidoId, clienteId, valor) {
+  if (!confirm(`Deseja recusar este Pix e devolver a dívida de ${R(valor)} ao cliente?`)) return;
+
+  try {
+    // 1. Marcar o pedido como recusado na tabela de pedidos
+    const { error: errPedido } = await db
+      .from('pedidos') 
+      .update({ 
+        status: 'RECUSADO', 
+        observacao: 'Pix recusado manualmente pela cozinha' 
+      })
+      .eq('id', pedidoId);
+
+    if (errPedido) throw errPedido;
+
+    // 2. Buscar o saldo atual do cliente para devolver o valor
+    const { data: cliente } = await db
+      .from('clientes_fiado')
+      .select('saldo_usado')
+      .eq('id', clienteId)
+      .single();
+
+    // Aqui o Gabriel soma o valor de volta ao "saldo_usado" (aumentando a dívida)
+    const novoSaldo = (parseFloat(cliente.saldo_usado) || 0) + parseFloat(valor);
+
+    const { error: errCliente } = await db
+      .from('clientes_fiado')
+      .update({ saldo_usado: novoSaldo })
+      .eq('id', clienteId);
+
+    if (errCliente) throw errCliente;
+
+    toast('❌ Pagamento recusado e limite restaurado!');
+    
+    // 3. Atualiza a tela da cozinha para o card atualizar
+    if (typeof carregarPedidos === 'function') carregarPedidos(); 
+
+  } catch (error) {
+    console.error('Erro no estorno:', error);
+    toast('Erro ao estornar: ' + error.message, 'err');
+  }
 }
 
 function abrirModalDefinirLimite(id) {
@@ -4349,10 +4659,15 @@ async function registrarConsumoFiado(clienteId, valor, descricao, pedidoId, mesa
   const novoSaldo = parseFloat(c.saldo_usado||0) + valor;
   if (novoSaldo > parseFloat(c.limite_max||100)) { toast('⚠️ Limite do fiado atingido!', 'err'); return false; }
 
-  await db.from('fiado_transacoes').insert([{
-    cliente_id: clienteId, tipo: 'consumo', valor,
+// Localize onde a IA insere o pagamento após ler o CPF
+await db.from('fiado_transacoes').insert([{
+    cliente_id: clienteId, 
+    tipo: 'consumo', 
+    valor,
     descricao: descricao || 'Consumo no restaurante',
-    pedido_id: pedidoId, mesa: String(mesa),
+    pedido_id: pedidoId, 
+    mesa: String(mesa),
+    validado_por: 'manual', // <--- DEFINE COMO MANUAL
     data_transacao: new Date().toISOString()
   }]);
 
@@ -4363,6 +4678,58 @@ async function registrarConsumoFiado(clienteId, valor, descricao, pedidoId, mesa
   }).eq('id', clienteId);
   return true;
 }
+
+async function estornarPagamentoIA(id, clienteId, valor) {
+    try {
+        console.log(`Recusando pagamento... Valor: ${valor}`);
+
+        // 1. Marca a transação como recusada para o botão sumir
+        const { error: errUpdate } = await db
+            .from('fiado_transacoes')
+            .update({ status_pagamento: 'recusado' })
+            .eq('id', id);
+
+        if (errUpdate) throw errUpdate;
+
+        // 2. Busca os dados atuais do cliente
+        const { data: cliente, error: errCliente } = await db
+            .from('clientes_fiado')
+            .select('saldo_usado, credito_disponivel')
+            .eq('id', clienteId)
+            .single();
+
+        if (errCliente) throw errCliente;
+
+        // 3. Calcula os novos valores
+        // Se recusamos um pagamento, o "saldo usado" SOBE e o "disponível" DESCE
+        const v = parseFloat(valor);
+        const novoSaldoUsado = (cliente.saldo_usado || 0) + v;
+        const novoDisponivel = (cliente.credito_disponivel || 0) - v;
+
+        // 4. Atualiza o cliente no banco
+        const { error: errSaldo } = await db
+            .from('clientes_fiado')
+            .update({ 
+                saldo_usado: novoSaldoUsado,
+                credito_disponivel: novoDisponivel 
+            })
+            .eq('id', clienteId);
+
+        if (errSaldo) throw errSaldo;
+
+        console.log("✅ Sucesso! Transação recusada e saldo corrigido.");
+        
+        // Opcional: Atualizar a tela para mostrar os novos valores no topo
+        if (typeof carregarDetalhesFiado === 'function') {
+            carregarDetalhesFiado(clienteId);
+        }
+
+    } catch (error) {
+        console.error("Erro ao processar recusa:", error);
+        alert("Erro ao atualizar saldos. Verifique o console.");
+    }
+}
+
 
 // ==================== REALTIME ====================
 function iniciarRealtime() {
@@ -4420,6 +4787,120 @@ function waitSB() {
     setTimeout(waitSB, 100);
   }
 }
+
+async function atualizarMonitoresSupabase() {
+    // Aguarda a inicialização do Supabase se necessário
+    if (typeof db === 'undefined' || !db) {
+        setTimeout(atualizarMonitoresSupabase, 1000);
+        return;
+    }
+
+    try {
+        // --- 1. BUSCAR USO DO DATABASE (Limite 500 MB) ---
+        const { data: dbData, error: dbError } = await db.rpc('obter_tamanho_db');
+        if (!dbError) {
+            const mbUsado = parseFloat(dbData) || 0;
+            const percDb = Math.min((mbUsado / 500) * 100, 100);
+            
+            document.getElementById('db-usado').innerText = mbUsado.toFixed(2) + ' MB';
+            document.getElementById('db-perc').innerText = percDb.toFixed(2) + '%';
+            document.getElementById('db-bar').style.width = percDb + '%';
+        }
+
+        // --- 2. BUSCAR USO DO STORAGE (Limite 1024 MB / 1 GB) ---
+        const { data: buckets, error: bError } = await db.storage.listBuckets();
+        if (!bError && buckets) {
+            let totalBytes = 0;
+            
+            // Soma o tamanho de todos os arquivos em todos os buckets (fotos, comprovantes, etc)
+            for (const bucket of buckets) {
+                const { data: files, error: fError } = await db.storage.from(bucket.id).list('', { limit: 100 });
+                if (!fError && files) {
+                    files.forEach(f => {
+                        if (f.metadata && f.metadata.size) totalBytes += f.metadata.size;
+                    });
+                }
+            }
+            
+            const mbStorage = totalBytes / (1024 * 1024);
+            const percSt = Math.min((mbStorage / 1024) * 100, 100);
+
+            document.getElementById('st-usado').innerText = mbStorage.toFixed(2) + ' MB';
+            document.getElementById('st-perc').innerText = percSt.toFixed(2) + '%';
+            document.getElementById('st-bar').style.width = percSt + '%';
+        }
+
+    } catch (e) {
+        console.warn("Aguardando carregamento completo do Supabase...");
+    }
+}
+
+// Garante que a atualização rode assim que a página estiver pronta
+window.addEventListener('load', atualizarMonitoresSupabase);
+// Atualiza automaticamente a cada 5 minutos para manter o painel atualizado
+setInterval(atualizarMonitoresSupabase, 300000);
+
+
+
+// 2. Função de Limpeza de Emergência
+async function limparBancoSupabase() {
+    const senha = prompt("⚠️ ATENÇÃO: Isso vai apagar TODO o histórico de transações de todos os clientes!\n\nPara confirmar, digite: APAGAR TUDO");
+    
+    if (senha === "APAGAR TUDO") {
+        try {
+            // O comando .neq('id', 0) é um truque para deletar todas as linhas da tabela
+            const { error } = await db.from('fiado_transacoes').delete().neq('id', 0);
+            
+            if (error) throw error;
+            
+            alert("✅ Histórico de transações apagado com sucesso! O espaço foi liberado.");
+            carregarTamanhoSupabase(); // Atualiza o painel
+            carregarHistorico(); // Atualiza a tela se estiver na aba histórico
+            
+        } catch (e) {
+            alert("Erro ao limpar dados: " + e.message);
+        }
+    } else {
+        alert("Operação cancelada. Ufa!");
+    }
+}
+
+
+window.executarRecusa = function(id, clienteId, valor) {
+    if(!confirm('Deseja realmente recusar este pagamento?')) return;
+
+    // 1. Localiza o botão e desabilita na hora
+    const btn = document.getElementById(`btn-recusar-${id}`);
+    if(btn) {
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+        btn.style.cursor = 'not-allowed';
+        btn.innerHTML = 'Processando...';
+    }
+
+    // 2. Tenta executar o estorno no banco (Supabase)
+    if (typeof estornarPagamentoIA === 'function') {
+        estornarPagamentoIA(id, clienteId, valor);
+    } else {
+        console.error("Erro: A função estornarPagamentoIA não foi encontrada no script.");
+    }
+
+    // 3. Feedback visual: Substitui o botão pelo texto de recusado
+    setTimeout(() => {
+        const container = document.getElementById(`status-pix-${id}`);
+        if(container) {
+            if(btn) btn.remove(); // Remove o botão ❌ Recusar
+            
+            const span = document.createElement('span');
+            span.style.color = '#ff4d4d';
+            span.style.fontSize = '0.65rem';
+            span.style.fontWeight = 'bold';
+            span.style.marginLeft = '4px';
+            span.innerHTML = '🚫 Comprovante Recusado';
+            container.appendChild(span);
+        }
+    }, 400); 
+};
 
 document.addEventListener('DOMContentLoaded', waitSB);
 
