@@ -1,0 +1,16 @@
+name: Keep Supabase Diaz Awake
+
+on:
+  schedule:
+    - cron: '0 */12 * * *'
+  workflow_dispatch:
+
+jobs:
+  ping-supabase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST API (tabela mesas)
+        run: |
+          curl -X GET "${{ secrets.SUPABASE_URL_DIAZ }}/rest/v1/mesas?select=id&limit=1" \
+          -H "apikey: ${{ secrets.SUPABASE_ANON_KEY_DIAZ }}" \
+          -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY_DIAZ }}"
